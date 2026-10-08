@@ -14,8 +14,8 @@ android {
         applicationId = "app.cursor.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     val signingPath = System.getenv("ANDROID_KEYSTORE_PATH")
