@@ -31,6 +31,8 @@ visible without turning your screen into a dashboard.
   follow-ups, cancellation, and artifacts.
 - **Two pools, clearly named.** One usage snapshot drives the in-app capsule,
   expanded details, and notification. Remaining is the default; used is optional.
+- **Home-screen widgets.** Resize Usage, Recent Agents, and Quick Actions to fit
+  your launcher; keep cached information and common app entries close.
 - **Android throughout.** Kotlin, Jetpack Compose, Navigation 3, ViewModel, Room,
   DataStore, Hilt, and WorkManager. English by default, optional Chinese.
 - **Clear web boundaries.** Advanced work panels and account management open Cursor's
@@ -39,6 +41,18 @@ visible without turning your screen into a dashboard.
 The project is in its initial implementation stage. See the [validation record](docs/validation.md)
 for completed checks and remaining live-account/device verification. Source is public;
 this repository does not currently declare a redistribution license.
+
+## Native previews
+
+<p align="center">
+  <img src="docs/assets/android-connections.png" width="220" alt="Native API-key and web-session settings, with no credentials entered">
+  <img src="docs/assets/android-usage-signed-out.png" width="220" alt="Native signed-out usage sheet with two unknown pool slots">
+  <img src="docs/assets/android-overlay-fixture.png" width="220" alt="Native overlay over the Android launcher, showing synthetic fixture percentages">
+</p>
+
+*Actual API 36 emulator captures at 320 dp: separate connections, signed-out usage, and the
+native overlay. The overlay's 68% / 39% values are injected test fixtures, not live
+account usage. No account credentials or paid Agent run were used for these captures.*
 
 ## Try it
 
@@ -57,8 +71,13 @@ history visibility and SSO behavior depend on Cursor's account/API support.
 ## Build
 
 Install Android Studio or Android command-line tools with **Android SDK 36**, and
-**JDK 17 or later**. The app supports Android 8.0 / API 26 and later; current compile
-and target SDK are 36. The repository supplies the Gradle wrapper.
+use the tested **JDK 21** toolchain. The app supports Android 8.0 / API 26 and later; current compile
+and target SDK are 36. The repository supplies the Gradle wrapper. Set Android
+Studio’s Gradle JDK to 21, or point `JAVA_HOME` at a JDK 21 installation. On macOS:
+
+```sh
+export JAVA_HOME="$(/usr/libexec/java_home -v 21)"
+```
 
 ```sh
 git clone https://github.com/occcat/cursor-android.git
@@ -94,6 +113,7 @@ visibility. Demo values are fictional and the prototype never requests credentia
 | Environments and Secrets | Native | Configuration and Secret metadata/write/delete under key permissions |
 | Cursor Model / Other Model | Native | Separate web session; unknown and stale states stay explicit |
 | Capsule and usage notification | Native | Monochrome system icon; two values in the notification drawer |
+| Home-screen widgets | Three resizable native families | Shared usage/cache; titles private by default; actions open the app |
 | Optional cross-app capsule | Permission-gated overlay | User starts/stops it; Android controls lifetime and background work |
 | Desktop, Terminal, Files | Cursor website | Web handoff, not native VM transports |
 | Automations and Codebase | Cursor website | Server-side capability and account entitlement |
@@ -103,15 +123,6 @@ This table describes implementation scope, not a claim that every real-account/d
 combination has passed testing. Detailed status belongs in the validation record.
 
 ## The capsule, designed for Android
-
-```text
-In the app                    Notification drawer
-┌──────────────────────────┐  ┌────────────────────────────────┐
-│ ● Cursor 68% · Other 39% │  │ Cursor Usage · Remaining       │
-└──────────────────────────┘  │ Cursor 68% · Other 39%         │
-     Tap for details          │ Resets Oct 31 · Updated 14:32  │
-                              └────────────────────────────────┘
-```
 
 Cursor Model comes from `individualUsage.plan.autoPercentUsed`; Other Model comes
 from `individualUsage.plan.apiPercentUsed`. With used values 32 and 61, remaining is
@@ -125,6 +136,26 @@ refresh and inexact WorkManager background sync do not promise perpetual live up
 Read the [UI specification](docs/design/cursor-android-ui.md) for sizing, colors,
 accessibility, pace, and permission behavior.
 
+## Home-screen widgets
+
+Long-press the home screen, open **Widgets**, and choose a Cursor Android widget.
+Touch and hold an added widget to resize it where your launcher allows.
+
+| Widget | Intended grid sizes | What it shows |
+| --- | --- | --- |
+| Usage | 2×1, 4×1, 2×2, 4×2 | Two pool values; larger layouts add bars and freshness |
+| Recent Agents | 2×2, 4×2, 4×3 | Cached state and Agent detail links; titles are private by default |
+| Quick Actions | 2×1, 4×1 | Inbox + New Agent; the wide layout also adds Usage + Settings |
+
+Grid cells vary by launcher; these are hints, not guaranteed cell counts. For example,
+the tested Pixel Launcher labels compact Usage 2×2 to satisfy its minimum height.
+The [widget guide](docs/design/home-screen-widgets.md) lists the actual dp layout bounds.
+Widgets share the app's used/remaining and pool-visibility settings. Agent titles can
+be enabled in Settings. Refresh is bounded and background work is inexact. Agent
+**ACTIVE** is not a claim that its latest Run is **RUNNING**. **New Agent** opens the
+composer; it never sends a prompt by itself.
+No overlay permission is required for a home-screen widget.
+
 ## Architecture and API research
 
 Compose observes ViewModel state. Repositories coordinate official API calls, a
@@ -132,16 +163,10 @@ separate web usage session, Room snapshots, and preferences. Credentials stay wi
 their intended origin and use Android Keystore protection. Signed artifact URLs and
 VM credentials must not become persistent account secrets.
 
-The ego audit covers Agents and associated settings, environment/Secret management,
-MCP/plugins, integrations, usage, files, terminal, desktop, and automations:
-
-| Evidence | Count |
-| --- | ---: |
-| Public JavaScript chunks inspected | 428 |
-| Web route candidates, including shared dashboard code | 857 |
-| Distinct paths observed in network traffic | 123 |
-| Paths with observed responses | 120 |
-| Documented public operations reviewed | 57 |
+The ego audit covers Agents, settings, environments, usage, and working panels:
+**428 public JS chunks**, **857 route candidates**, **123 observed paths** (120 with
+responses), and **57 documented public operations**. Full catalogs retain evidence
+and protocol details.
 
 These are evidence counts, **not 857 verified APIs**. Every catalog entry retains its
 observation/call/descriptor/candidate classification. Start with the

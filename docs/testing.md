@@ -67,6 +67,19 @@ Record unavailable rows explicitly rather than marking them passed.
 - Background/Doze and offline behavior show truthful timestamps; work remains inexact.
 - Web-only work panels open the intended HTTPS page and are identified as web features.
 
+## Home-screen widget matrix
+
+Use each implemented Usage, Recent Agents, and Quick Actions family in the Android
+launcher. Check minimum/default/expanded sizes, resize callbacks, multiple instances,
+remove/re-add, English/Chinese, large text, dark/light, and cold/warm app navigation.
+Compare usage values and metric with the app; test unknown, partial, unlimited, stale,
+expired-session, and hidden-pool fixtures. Account switches and disconnects must remove
+old content. Agent ACTIVE is not a synonym for Run RUNNING. New Agent opens a composer
+without sending or starting a paid run. Background updates remain inexact and shared.
+Widget host tests must verify real RemoteViews/launcher rendering as well as pure logic.
+Agent titles remain private until explicitly enabled in Settings. Record launcher/API
+coverage and any unavailable vendor/device cases explicitly.
+
 ## Browser and website matrix
 
 Use ego for actual browser QA; keep browser task ownership with the coordinator.

@@ -7,6 +7,11 @@ license; do not assume a license based on another project's README.
 
 ## Local checks
 
+Use the tested JDK 21 toolchain and Android SDK 36. Select JDK 21 as Android
+Studio’s Gradle JDK, or point `JAVA_HOME` to its installation. On macOS with JDK 21
+installed: `export JAVA_HOME="$(/usr/libexec/java_home -v 21)"`. Website checks require
+Node.js 22 or later; the documentation check also requires Python 3.
+
 ```sh
 ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 node --test website/test/*.test.mjs

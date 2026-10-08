@@ -132,6 +132,14 @@ from an actual expired session. “Pool exhausted” does not mean every request
 account on-demand or other-pool policies can still apply. Suggested 20%/10% alerts
 are product preferences, not official Cursor rules; deduplicate per pool and cycle.
 
+## Home-screen widgets
+
+Usage, Recent Agents, and Quick Actions have separate resizable home-screen widgets.
+They reuse account-scoped cache, usage preferences, freshness, and language.
+Widget placement does not require overlay permission. Agent titles are private by
+default; enable them explicitly in Settings. The [widget guide](home-screen-widgets.md)
+contains size targets, action boundaries, and launcher constraints.
+
 ## Local versus account settings
 
 Local DataStore settings: English/Chinese, theme, pool visibility, used/remaining,
