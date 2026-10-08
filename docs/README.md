@@ -13,6 +13,7 @@ Research began on October 8 and concluded on October 9, 2026.
 | [Public API reference](cursor-public-api.md) | All 33 v1, 12 worker/pool, and 12 legacy operations reviewed |
 | [Android implementation plan](android-implementation-plan.md) | Architecture, authentication, state, offline behavior |
 | [Capsule and status bar](design/cursor-android-ui.md) | Two-pool data contract, visual states, Android constraints |
+| [Home-screen widgets](design/home-screen-widgets.md) | Usage, Recent Agents, Quick Actions, responsive sizes and privacy |
 | [Interactive prototype](design/cursor-android-prototype.html) | Fictional data; no Cursor requests or credentials |
 | [Endpoint evidence](api/cursor-web-endpoints.json) | Per-route methods, type-only shapes, bundle references |
 | [Protocol evidence](api/cursor-web-services.json) | Connect, Tmux, PTY, and protobuf field descriptors |

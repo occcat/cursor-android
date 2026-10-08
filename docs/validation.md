@@ -26,28 +26,47 @@ ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and
 ANDROID_KEY_PASSWORD. A durable signing key is stored outside the repository.
 Configuration alone is not a successful release build or installed-artifact test.
 
-Production site content still requires a successful deployment of the implementation.
-The initial build against the original repository main cannot build files that have
-not merged yet. Domain/SSL activation is not a successful site-content check.
+Production site content and release refresh require verification after this
+implementation reaches main. Domain/SSL activation is not a successful site-content check.
 
 ## Implementation validation
 
 | Area | State |
 | --- | --- |
-| Documentation links/evidence/HTML/SVG | `python3 docs/scripts/check-docs.py` passed: 82 local links, immutable counts, JSON/SVG, duplicate IDs, JS syntax |
-| Android initial suite | Worker passed 20 unit tests, lintDebug, and assembleDebug; reviewer fixes/regression checks are still in progress, so this is not final integration approval |
-| Android instrumentation/device tests | Pending available device/emulator |
-| Live account API-key and web sign-in | Not established by the research audit |
-| Website build/tests | Worker: `node --test website/test/*.test.mjs` passed 10 cases; `node website/scripts/build.mjs` passed; website Reviewer approved a3ed683 |
-| Website ego preview | Coordinator passed desktop/320 px EN/CN, persistence, metric/scenario/pool toggles, keyboard tabs, privacy-dialog Escape/focus, reduced motion at localhost:4173 |
+| Documentation links/evidence/HTML/SVG | `python3 docs/scripts/check-docs.py` passed: 100 local references including native screenshot sources, immutable counts, JSON/SVG, duplicate IDs, JS syntax |
+| Android reviewed native/widget suite | Widget milestone `d310966`: 37 unit tests passed, debug lint reported zero errors/fatal findings, and the debug build passed; Reviewer independently verified the reports |
+| Android instrumentation | 11/11 instrumentation tests passed on the API 36 emulator, with zero failures/errors/skips; this includes the native suite and six widget tests |
+| Native screenshot review | Actual API 36 / 320 dp signed-out connections/usage and compact overlay captured; overlay uses synthetic 68/39 fixtures; no credentials or paid run |
+| Live account API-key and web sign-in | Not run; network behavior uses MockWebServer fixtures, with no paid Agent runs |
+| Website build/tests | Widget showcase `f18299a`: 19 Node tests, syntax, offline build, and diff checks passed; Reviewer approved with no P0/P1 findings |
+| Website ego preview | Coordinator passed desktop/320 px EN/CN, persistence, metrics/scenarios/pool toggles, keyboard/focus, reduced motion, three widget families/sizes, title privacy, unlimited/stale states, and action destinations |
 | English documentation prototype ego check | Coordinator passed default English, EN/CN at 320 px without overflow, 68/39 remaining ↔ 32/61 used, correct pace, Escape/focus return, hidden pools/icon, notification off, and signed-out privacy |
-| Integrated tests after merges/rebase | Pending Merger/Operator |
+| Native widgets | Real RemoteViews host checks cover responsive sizes, 1.3× text, English/Chinese, full visible bounds, and real PendingIntent cold/warm navigation to four app screens and two distinct Agent details; five approved synthetic-fixture captures are linked in the widget guide |
+| Signed-release launcher checks | All three providers and Settings pin buttons are registered; actual Pixel Launcher Usage pinning renders signed-out state, opens native Usage, and refreshes without runtime errors |
+| Final combined integration/rebase | Pending final Merger/Operator execution; complete results will be recorded in the PR |
+| Signed distribution validation | Version 0.1.2/code 3 was committed separately at `39fe867`; signed R8 build, release lint, certificate verification, and in-place upgrade from 0.1.1 passed; firstInstallTime and the paused-sync preference were preserved |
 | Production website/release refresh | Pending deployment after merge |
+
+Android commands reported for the reviewed native suite:
+
+```sh
+./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+./gradlew :app:lintRelease :app:assembleRelease
+./gradlew :app:connectedDebugAndroidTest
+```
 
 The documentation prototype was checked at localhost:8766; the website preview at
 localhost:4173. These are browser preview results, not Android device results or
 production-domain content checks. All displayed quotas are fictional.
 
+Android network contracts use MockWebServer fixtures. These checks do not establish
+live API-key authentication, web SSO, paid mutations, API 26 compatibility in practice,
+or behavior on vendor launchers. API 36 emulator coverage and synthetic widget host
+screenshots must not be described as the full device/account acceptance matrix.
+The tested Pixel Launcher labels compact Usage 2×2 to satisfy its minimum geometry;
+grid labels are hints, while the documented dp breakpoints define actual layouts.
+
 Do not promote pending checks to passed based on source inspection, a mock, an accepted
 build request, or a test from the reference browser extension. Update this record with
-exact commands/results as each implementation line finishes.
+exact commands/results for later changes; final integration and production evidence
+for this launch are recorded in the associated PR.

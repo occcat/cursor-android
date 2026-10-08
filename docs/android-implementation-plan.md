@@ -53,6 +53,7 @@ refresh requests. Native controls and web pages share clear connection/Agent ide
 | Pin/read/custom lists, Fork/Side Chat | Verified web adapter or browser | Do not infer parity from endpoint names |
 | Automations, Codebase, plugins/MCP | Verified supported fields or browser | Server execution and actual entitlement |
 | Changes, files, terminal, desktop | Native adapters or clearly named web entry | Each protocol needs separate testing |
+| Home-screen widgets | Jetpack Glance / shared snapshots | Three resizable families; explicit navigation; private titles by default |
 | Appearance, language, metric, visibility, refresh | Local DataStore | Does not change Cursor account defaults |
 | Billing, account, SCM binding | Browser | Kept in Cursor's existing management flows |
 
@@ -141,6 +142,12 @@ A status-bar notification uses a monochrome small icon. The drawer shows two val
 it should use standard/BigTextStyle templates with a privacy-safe lock-screen view.
 API 33+ requests POST_NOTIFICATIONS from a user action. Permission rejection does not
 remove the in-app capsule. Channels separate quiet usage updates from run events.
+
+Home-screen widgets use Glance and the same account-scoped snapshots. Usage, Recent
+Agents, and Quick Actions support responsive layouts; their exact grid size depends
+on the launcher. Titles require an explicit visibility preference. Activity actions
+open native screens and never execute paid work automatically. See the
+[widget guide](design/home-screen-widgets.md). Widgets are distinct from overlays.
 
 An optional cross-app capsule needs SYSTEM_ALERT_WINDOW and lies below system bars
 and the keyboard. It must have an explicit start/stop and permission-revocation path.

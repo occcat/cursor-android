@@ -11,13 +11,28 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[2]
 errors = []
 checked = 0
+
+class ImageReferences(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.targets = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'img':
+            source = dict(attrs).get('src')
+            if source:
+                self.targets.append(source)
+
 sources = [*sorted(ROOT.glob('README*.md')), ROOT / 'CONTRIBUTING.md',
            *sorted((ROOT / 'docs').rglob('*.md'))]
 for source in sources:
     if not source.exists():
         continue
     body = source.read_text()
-    for target in re.findall(r'\]\(([^)]+)\)', body):
+    images = ImageReferences()
+    images.feed(body)
+    targets = re.findall(r'\]\(([^)]+)\)', body) + images.targets
+    for target in targets:
         target = target.split('#')[0].split(' "')[0]
         if not target or re.match(r'^[a-zA-Z]+:', target) or target.startswith('//'):
             continue
@@ -68,5 +83,6 @@ with tempfile.NamedTemporaryFile(mode='w', suffix='.js') as script:
     subprocess.run(['node', '--check', script.name], check=True)
 if errors:
     raise SystemExit('\n'.join(errors))
-print(f'Passed: {checked} local Markdown links; 857 routes / 123 observed / 120 responses; '
+print(f'Passed: {checked} local documentation references; '
+      '857 routes / 123 observed / 120 responses; '
       'JSON, SVG, prototype IDs and JavaScript syntax.')
