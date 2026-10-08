@@ -23,6 +23,12 @@ remaining/used values; both pools hidden; normal, low, offline, expired, unknown
 states;
 notification consistency; language persistence; reduced motion; no horizontal page overflow.
 
+The home-screen widget preview shares the same usage state and controls as the phone preview.
+Verify every suggested size, private agent titles before opt-in, and compact versus wide quick
+actions. Offline and stale data retain their values; an expired connection clears percentages.
+The grid labels are suggestions because launcher cell dimensions vary. Preview shortcut clicks
+describe their in-app destinations and never send a task or change device permissions.
+
 ## Cloudflare Pages
 
 | Setting | Value |

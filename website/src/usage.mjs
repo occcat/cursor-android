@@ -2,7 +2,8 @@ export const scenarios = Object.freeze({
     normal: { cursor: 32, other: 61, status: "current" },
     tight: { cursor: 91, other: 98, status: "current" },
     offline: { cursor: 32, other: 61, status: "offline" },
-    expired: { cursor: 32, other: 61, status: "expired" },
+    stale: { cursor: 32, other: 61, status: "stale" },
+    expired: { cursor: null, other: null, status: "expired" },
     partial: { cursor: 32, other: null, status: "current" },
     unlimited: { cursor: null, other: null, status: "unlimited" },
 });
