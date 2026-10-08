@@ -154,13 +154,15 @@ class WidgetExperienceTest {
                     scenario,
                     AgentsWidget(),
                     320,
-                    260,
+                    300,
                     state,
                     "Recent Agents · synthetic fixture",
                 )
             assertTrue(agents.any { it.text.toString() == "Agent 1" })
             assertTrue(agents.any { it.text.toString() == "Active" })
+            assertTrue(agents.any { it.text.toString() == "Agent 3" })
             assertFalse(agents.any { it.text.toString().contains("Private title") })
+            assertTextFits(agents, agents.map { it.text.toString() }.toSet())
             screenshot("agents-private")
             val wideAgents =
                 render(
@@ -172,6 +174,7 @@ class WidgetExperienceTest {
                     "Recent Agents · wide synthetic fixture",
                 )
             assertEquals(2, wideAgents.count { it.text.toString().startsWith("Agent ") })
+            assertTextFits(wideAgents, wideAgents.map { it.text.toString() }.toSet())
             screenshot("agents-wide")
             val compact =
                 render(scenario, ActionsWidget(), 160, 80, state, "Quick Actions · compact")
@@ -486,9 +489,25 @@ class WidgetExperienceTest {
                     var root: View = view
                     while (root !is AppWidgetHostView && root.parent is View) root =
                         root.parent as View
+                    val hostBounds = android.graphics.Rect()
+                    assertTrue(
+                        "Widget host detached before layout assertions",
+                        root.isAttachedToWindow,
+                    )
+                    assertTrue(
+                        "Widget host outside the test viewport",
+                        root.getGlobalVisibleRect(hostBounds),
+                    )
+                    assertEquals("Test viewport clips widget width", root.width, hostBounds.width())
+                    assertEquals(
+                        "Test viewport clips widget height",
+                        root.height,
+                        hostBounds.height(),
+                    )
                     val bounds = android.graphics.Rect()
                     assertTrue("Hidden ${view.text}", view.getGlobalVisibleRect(bounds))
                     assertTrue("Cropped ${view.text}", bounds.height() >= view.layout.height)
+                    assertEquals("Horizontally cropped ${view.text}", view.width, bounds.width())
                     if (
                         view.text.toString().contains("Refresh") ||
                             view.text.toString().contains("刷新")

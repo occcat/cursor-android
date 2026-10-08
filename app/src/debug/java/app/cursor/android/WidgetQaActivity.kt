@@ -7,7 +7,10 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 
-/** A debug-only host for real Glance RemoteViews; never shipped in release builds. */
+/**
+ * Hosts real Glance RemoteViews without horizontal insets, so a 320 dp widget fits a 320 dp screen.
+ * This test surface is absent from release builds.
+ */
 class WidgetQaActivity : Activity() {
     lateinit var content: LinearLayout
 
@@ -16,7 +19,7 @@ class WidgetQaActivity : Activity() {
         content =
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(24, 100, 24, 60)
+                setPadding(0, 24, 0, 24)
                 setBackgroundColor(Color.rgb(220, 218, 211))
             }
         setContentView(ScrollView(this).apply { addView(content) })
