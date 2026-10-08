@@ -16,6 +16,7 @@ import app.cursor.android.data.UserPreferences
 import app.cursor.android.data.WebSessionStore
 import app.cursor.android.system.UsageNotifications
 import app.cursor.android.system.UsageSyncWorker
+import app.cursor.android.widget.WidgetUpdates
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -38,6 +39,7 @@ class CursorApplication : Application(), Configuration.Provider {
         super.onCreate()
         UsageNotifications.createChannels(this)
         UsageSyncWorker.schedule(this)
+        WidgetUpdates.observe(this)
     }
 }
 

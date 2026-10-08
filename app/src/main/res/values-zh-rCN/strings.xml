@@ -10,4 +10,10 @@
     <string name="updated">更新于 %1$s</string>
     <string name="pending_reset">等待新账单周期数据</string>
     <string name="private_notification">打开 Cursor Android 查看用量</string>
+    <string name="usage_widget_name">用量</string>
+    <string name="usage_widget_description">Cursor Model 与 Other Model 额度。</string>
+    <string name="agents_widget_name">最近会话</string>
+    <string name="agents_widget_description">缓存会话状态，默认隐藏标题。</string>
+    <string name="actions_widget_name">快捷操作</string>
+    <string name="actions_widget_description">打开收件箱、新建会话、用量或设置。</string>
 </resources>

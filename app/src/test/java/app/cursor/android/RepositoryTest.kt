@@ -52,6 +52,27 @@ class RepositoryTest {
     }
 
     @Test
+    fun timestampedAgentSnapshotUsesPersistedFetchTimeAndClearsOnLogout() = runTest {
+        cache.put(CacheEntry("agents", "{\"items\":[{\"id\":\"a\"}]}", 1234))
+        assertEquals(1234, repository.agentSnapshot.first()!!.updatedAt)
+        repository.disconnect()
+        assertNull(repository.agentSnapshot.first())
+        assertEquals(false, repository.connections.first().api)
+        assertEquals(false, repository.connections.first().web)
+    }
+
+    @Test
+    fun expiredAgentKeyClearsWidgetSnapshotWithoutClearingWebConnection() = runTest {
+        cache.put(CacheEntry("agents", "{\"items\":[{\"id\":\"a\"}]}", 1234))
+        server.enqueue(MockResponse().setResponseCode(401))
+        runCatching { repository.refreshAgents() }
+        assertNull(repository.agentSnapshot.first())
+        assertNull(credentials.read("api"))
+        assertEquals(false, repository.connections.first().api)
+        assertEquals(true, repository.connections.first().web)
+    }
+
+    @Test
     fun paginationFollowsCursorAndDeduplicatesIds() = runTest {
         server.enqueue(MockResponse().setBody("""{"items":[{"id":"a"}],"nextCursor":"two"}"""))
         server.enqueue(MockResponse().setBody("""{"items":[{"id":"a"},{"id":"b"}]}"""))

@@ -1,0 +1,9 @@
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="160dp" android:minHeight="180dp"
+    android:minResizeWidth="160dp" android:minResizeHeight="180dp"
+    android:targetCellWidth="2" android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical" android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" android:initialLayout="@layout/glance_default_loading_layout"
+    android:previewLayout="@layout/agents_widget_preview"
+    android:previewImage="@drawable/agents_widget_preview"
+    android:description="@string/agents_widget_description" />

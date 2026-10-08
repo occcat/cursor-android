@@ -10,4 +10,10 @@
     <string name="updated">Updated %1$s</string>
     <string name="pending_reset">Awaiting billing cycle refresh</string>
     <string name="private_notification">Open Cursor Android to view usage</string>
+    <string name="usage_widget_name">Usage</string>
+    <string name="usage_widget_description">Cursor Model and Other Model allowance.</string>
+    <string name="agents_widget_name">Recent Agents</string>
+    <string name="agents_widget_description">Cached agent status. Titles stay private by default.</string>
+    <string name="actions_widget_name">Quick Actions</string>
+    <string name="actions_widget_description">Open the inbox, composer, usage or settings.</string>
 </resources>

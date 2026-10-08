@@ -116,6 +116,7 @@ data class Preferences(
     val notifications: Boolean = false,
     val intervalSeconds: Int = 60,
     val language: String = "en",
+    val widgetTitles: Boolean = false,
 )
 
 interface UserPreferences {
@@ -141,11 +142,23 @@ class SettingsStore(context: Context) : UserPreferences {
                 notifications = data[booleanPreferencesKey("notifications")] ?: false,
                 intervalSeconds = data[intPreferencesKey("interval")] ?: 60,
                 language = data[stringPreferencesKey("language")] ?: "en",
+                widgetTitles = data[booleanPreferencesKey("widgetTitles")] ?: false,
             )
         }
 
     override suspend fun boolean(name: String, value: Boolean) {
-        require(name in listOf("remaining", "cursor", "other", "pace", "paused", "notifications"))
+        require(
+            name in
+                listOf(
+                    "remaining",
+                    "cursor",
+                    "other",
+                    "pace",
+                    "paused",
+                    "notifications",
+                    "widgetTitles",
+                )
+        )
         store.edit { it[booleanPreferencesKey(name)] = value }
     }
 

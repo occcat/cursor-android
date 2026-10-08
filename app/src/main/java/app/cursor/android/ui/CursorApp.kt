@@ -91,6 +91,8 @@ import app.cursor.android.domain.UsageSnapshot
 import app.cursor.android.domain.isTrustedSignInUrl
 import app.cursor.android.system.UsageNotifications
 import app.cursor.android.system.UsageOverlayService
+import app.cursor.android.widget.WidgetDestination
+import app.cursor.android.widget.WidgetPicker
 import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.delay
@@ -109,7 +111,12 @@ fun label(english: String, chinese: String): String =
     if (LocalConfiguration.current.locales[0].language == "zh") chinese else english
 
 @Composable
-fun CursorApp(state: UiState, model: CursorViewModel) {
+fun CursorApp(
+    state: UiState,
+    model: CursorViewModel,
+    widgetDestination: WidgetDestination? = null,
+    consumeWidgetDestination: () -> Unit = {},
+) {
     val dark = isSystemInDarkTheme()
     val colors =
         if (dark)
@@ -150,6 +157,17 @@ fun CursorApp(state: UiState, model: CursorViewModel) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var usageOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(widgetDestination) {
+        widgetDestination?.let { target ->
+            backStack.clear()
+            backStack.add(Destination("inbox"))
+            usageOpen = target.screen == "usage"
+            if (target.screen !in listOf("inbox", "usage")) {
+                backStack.add(Destination(target.screen, target.agentId))
+            }
+            consumeWidgetDestination()
+        }
+    }
     LaunchedEffect(state.preferences.language) {
         AppCompatDelegate.setApplicationLocales(
             LocaleListCompat.forLanguageTags(state.preferences.language)
@@ -1005,6 +1023,22 @@ private fun SettingsScreen(
             ),
             fontSize = 13.sp,
         )
+        Section(label("HOME SCREEN WIDGETS", "桌面小组件"))
+        Text(
+            label(
+                "Add Usage, Recent Agents or Quick Actions, then resize on your home screen. " +
+                    "Cached snapshots refresh about every 15 minutes when Android permits.",
+                "添加用量、最近会话或快捷操作后，可在桌面调整大小。缓存快照在 Android 允许时约每 15 分钟刷新。",
+            ),
+            fontSize = 13.sp,
+        )
+        Toggle(
+            label("Show agent titles in widgets", "在小组件显示会话标题"),
+            state.preferences.widgetTitles,
+        ) {
+            model.boolean("widgetTitles", it)
+        }
+        WidgetPicker()
         Section(label("LANGUAGE", "语言"))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(

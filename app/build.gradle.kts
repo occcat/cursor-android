@@ -74,6 +74,7 @@ dependencies {
     ksp("androidx.room:room-compiler:2.8.3")
     implementation("androidx.datastore:datastore-preferences:1.1.7")
     implementation("androidx.work:work-runtime-ktx:2.10.5")
+    implementation("androidx.glance:glance-appwidget:1.2.0")
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

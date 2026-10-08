@@ -12,8 +12,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import app.cursor.android.MainActivity
 import app.cursor.android.R
 import app.cursor.android.data.Preferences
@@ -152,8 +150,7 @@ class UsageActionReceiver : BroadcastReceiver() {
         if (intent.action == "stop") {
             context.stopService(Intent(context, UsageOverlayService::class.java))
         } else if (intent.action == "refresh") {
-            WorkManager.getInstance(context)
-                .enqueue(OneTimeWorkRequestBuilder<UsageSyncWorker>().build())
+            UsageSyncWorker.refresh(context)
         }
     }
 }
