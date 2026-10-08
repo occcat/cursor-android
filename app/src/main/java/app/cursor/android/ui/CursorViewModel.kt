@@ -1,41 +1,46 @@
 package app.cursor.android.ui
 
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.cursor.android.data.CursorRepository
 import app.cursor.android.data.Preferences
-import app.cursor.android.data.SettingsStore
+import app.cursor.android.data.UserPreferences
 import app.cursor.android.data.items
 import app.cursor.android.data.string
 import app.cursor.android.domain.UsageSnapshot
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 
 /** Owns user actions; composables only render immutable state and send intents. */
 @HiltViewModel
-class CursorViewModel @Inject constructor(
-    private val repository: CursorRepository,
-    val settings: SettingsStore,
-) : ViewModel() {
-    private val local = MutableStateFlow(LocalState(connected = repository.connected,
-        webConnected = repository.webConnected))
-    val uiState: StateFlow<UiState> = combine(
-        local, repository.agents, repository.usage, settings.preferences,
-    ) { state, agents, usage, preferences -> UiState(state, agents, usage, preferences) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState(local.value))
+class CursorViewModel
+@Inject
+constructor(private val repository: CursorRepository, val settings: UserPreferences) : ViewModel() {
+    private val local =
+        MutableStateFlow(
+            LocalState(connected = repository.connected, webConnected = repository.webConnected)
+        )
+    val uiState: StateFlow<UiState> =
+        combine(local, repository.agents, repository.usage, settings.preferences) {
+                state,
+                agents,
+                usage,
+                preferences ->
+                UiState(state, agents, usage, preferences)
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState(local.value))
     private var streaming: Job? = null
     private val actions = Mutex()
 
@@ -57,8 +62,12 @@ class CursorViewModel @Inject constructor(
     }
 
     fun refresh(more: Boolean = false) = action { repository.refreshAgents(more) }
+
     fun refreshUsage() = action { repository.refreshUsage() }
-    fun clearError() { local.update { it.copy(error = null) } }
+
+    fun clearError() {
+        local.update { it.copy(error = null) }
+    }
 
     fun catalog() = action {
         val models = repository.cachedResource(listOf("models"))
@@ -95,19 +104,41 @@ class CursorViewModel @Inject constructor(
         }
     }
 
-    fun stopWatching() { streaming?.cancel() }
+    fun stopWatching() {
+        streaming?.cancel()
+    }
 
     private fun watch(agent: String, run: String) {
-        streaming = viewModelScope.launch {
-            try {
-                repository.stream(agent, run).collect { event ->
-                    local.update { it.copy(streamText = event.string("text")) }
+        streaming =
+            viewModelScope.launch {
+                try {
+                    repository.stream(agent, run).collect { event ->
+                        val status = event.string("status")
+                        local.update { state ->
+                            state.copy(
+                                streamText = event.string("text"),
+                                runs =
+                                    state.runs.map { item ->
+                                        if (item.string("id") == run && status.isNotBlank()) {
+                                            JsonObject(
+                                                item +
+                                                    ("status" to
+                                                        kotlinx.serialization.json.JsonPrimitive(
+                                                            status
+                                                        ))
+                                            )
+                                        } else item
+                                    },
+                            )
+                        }
+                    }
+                    val current = repository.cachedResource(listOf("agents", agent, "runs"))
+                    local.update { it.copy(runs = current.items()) }
+                } catch (exception: Exception) {
+                    if (exception is CancellationException) throw exception
+                    local.update { it.copy(error = exception.message ?: "Stream unavailable") }
                 }
-            } catch (exception: Exception) {
-                if (exception is CancellationException) throw exception
-                local.update { it.copy(error = exception.message ?: "Stream unavailable") }
             }
-        }
     }
 
     fun followUp(id: String, text: String) = action {
@@ -128,10 +159,12 @@ class CursorViewModel @Inject constructor(
     }
 
     fun artifactUrl(id: String, path: String, open: (String) -> Unit) = action {
-        val response = repository.api.request(
-            "GET", listOf("v1", "agents", id, "artifacts", "download"),
-            query = mapOf("path" to path),
-        )
+        val response =
+            repository.api.request(
+                "GET",
+                listOf("v1", "agents", id, "artifacts", "download"),
+                query = mapOf("path" to path),
+            )
         open(response.string("url"))
     }
 
@@ -142,21 +175,34 @@ class CursorViewModel @Inject constructor(
     }
 
     fun environment(id: String) = action {
+        local.update { it.copy(environment = null, secrets = emptyList()) }
         val resource = repository.cachedResource(listOf("environments", id))
         val secrets = repository.cachedResource(listOf("environments", id, "secrets"))
         local.update { it.copy(environment = resource, secrets = secrets.items()) }
     }
 
     fun saveEnvironment(id: String, body: JsonObject) = action {
+        require(local.value.environment?.string("id") == id) {
+            "Reload this environment before saving"
+        }
         repository.api.request("PATCH", listOf("v1", "environments", id), body)
         val value = repository.cachedResource(listOf("environments", id))
         local.update { it.copy(environment = value) }
     }
 
     fun secret(id: String, name: String, body: JsonObject?, version: String? = null) = action {
+        require(local.value.environment?.string("id") == id) {
+            "Reload this environment before saving"
+        }
+        if (body != null) {
+            require(local.value.secrets.none { it.string("name") == name }) {
+                "A secret with this name exists. Use Cursor Web to rotate an existing secret."
+            }
+        }
         repository.api.request(
             if (body == null) "DELETE" else "PUT",
-            listOf("v1", "environments", id, "secrets", name), body,
+            listOf("v1", "environments", id, "secrets", name),
+            body,
             if (version == null) emptyMap() else mapOf("id" to version),
         )
         val secrets = repository.cachedResource(listOf("environments", id, "secrets"))
@@ -164,25 +210,31 @@ class CursorViewModel @Inject constructor(
     }
 
     fun boolean(name: String, value: Boolean) = action { settings.boolean(name, value) }
+
     fun interval(seconds: Int) = action { settings.interval(seconds) }
+
     fun language(language: String) = action { settings.language(language) }
 
-    private fun action(block: suspend () -> Unit): Job = viewModelScope.launch {
-        actions.withLock {
-        local.update { it.copy(busy = true, error = null) }
-        try {
-            block()
-        } catch (exception: Exception) {
-            if (exception is CancellationException) throw exception
-            local.update { it.copy(error = exception.message ?: "Request failed") }
-        } finally {
-            local.update {
-                it.copy(busy = false, connected = repository.connected,
-                    webConnected = repository.webConnected)
+    private fun action(block: suspend () -> Unit): Job =
+        viewModelScope.launch {
+            actions.withLock {
+                local.update { it.copy(busy = true, error = null) }
+                try {
+                    block()
+                } catch (exception: Exception) {
+                    if (exception is CancellationException) throw exception
+                    local.update { it.copy(error = exception.message ?: "Request failed") }
+                } finally {
+                    local.update {
+                        it.copy(
+                            busy = false,
+                            connected = repository.connected,
+                            webConnected = repository.webConnected,
+                        )
+                    }
+                }
             }
         }
-        }
-    }
 }
 
 data class LocalState(

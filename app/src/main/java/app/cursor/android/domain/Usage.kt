@@ -9,7 +9,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
 
 @Serializable
 data class UsageSnapshot(
@@ -32,11 +31,17 @@ data class UsageSnapshot(
         if (unlimited) return null
         val end = cycleEnd ?: return null
         val validStart = cycleStart?.takeIf { end - it in day..32 * day }
-        val start = validStart ?: Instant.ofEpochMilli(end).atZone(ZoneOffset.UTC)
-            .minusMonths(1).toInstant().toEpochMilli()
+        val start =
+            validStart
+                ?: Instant.ofEpochMilli(end)
+                    .atZone(ZoneOffset.UTC)
+                    .minusMonths(1)
+                    .toInstant()
+                    .toEpochMilli()
         if (now < start || now >= end || end <= start) return null
-        val target = ((floor((now - start).toDouble() / day) + 1) * day / (end - start))
-            .coerceIn(0.0, 1.0) * 100.0
+        val target =
+            ((floor((now - start).toDouble() / day) + 1) * day / (end - start)).coerceIn(0.0, 1.0) *
+                100.0
         return Pace(target, validStart == null)
     }
 
@@ -70,9 +75,10 @@ data class UsageSnapshot(
 }
 
 data class Pace(val targetUsed: Double, val estimated: Boolean) {
-    fun category(used: Double): Int = when {
-        used - targetUsed > 5 -> 1
-        used - targetUsed < -5 -> -1
-        else -> 0
-    }
+    fun category(used: Double): Int =
+        when {
+            used - targetUsed > 5 -> 1
+            used - targetUsed < -5 -> -1
+            else -> 0
+        }
 }

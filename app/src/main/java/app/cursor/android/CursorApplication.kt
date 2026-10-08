@@ -12,6 +12,8 @@ import app.cursor.android.data.CursorApi
 import app.cursor.android.data.CursorDatabase
 import app.cursor.android.data.CursorRepository
 import app.cursor.android.data.SettingsStore
+import app.cursor.android.data.UserPreferences
+import app.cursor.android.data.WebSessionStore
 import app.cursor.android.system.UsageNotifications
 import app.cursor.android.system.UsageSyncWorker
 import dagger.Module
@@ -42,21 +44,28 @@ class CursorApplication : Application(), Configuration.Provider {
 @Module
 @InstallIn(SingletonComponent::class)
 object ApplicationModule {
-    @Provides @Singleton
+    @Provides
+    @Singleton
     fun credentials(@ApplicationContext context: Context): Credentials = CredentialStore(context)
 
-    @Provides @Singleton
+    @Provides
+    @Singleton
     fun cache(@ApplicationContext context: Context): CacheDao =
         Room.databaseBuilder(context, CursorDatabase::class.java, "cursor.db").build().cache()
 
-    @Provides @Singleton
+    @Provides
+    @Singleton
     fun api(credentials: Credentials): CursorApi =
         CursorApi({ credentials.read("api") }, { credentials.read("cookie") })
 
-    @Provides @Singleton
+    @Provides
+    @Singleton
     fun repository(api: CursorApi, cache: CacheDao, credentials: Credentials): CursorRepository =
-        CursorRepository(api, cache, credentials)
+        CursorRepository(api, cache, credentials, WebSessionStore::clear)
 
-    @Provides @Singleton
+    @Provides fun userPreferences(settings: SettingsStore): UserPreferences = settings
+
+    @Provides
+    @Singleton
     fun settings(@ApplicationContext context: Context): SettingsStore = SettingsStore(context)
 }

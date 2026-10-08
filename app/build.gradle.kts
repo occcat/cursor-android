@@ -30,8 +30,12 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            if (!signingPath.isNullOrBlank()) signingConfig = signingConfigs.getByName("distribution")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            if (!signingPath.isNullOrBlank())
+                signingConfig = signingConfigs.getByName("distribution")
         }
     }
     compileOptions {
@@ -39,11 +43,15 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true; buildConfig = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     testOptions { unitTests.isReturnDefaultValues = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     lint { abortOnError = true }
 }
+
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 
 dependencies {

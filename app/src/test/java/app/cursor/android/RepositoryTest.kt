@@ -27,18 +27,32 @@ class RepositoryTest {
     private lateinit var repository: CursorRepository
     private lateinit var credentials: FakeCredentials
 
-    @Before fun setup() {
+    @Before
+    fun setup() {
         server = MockWebServer()
         server.start()
         cache = FakeCache()
         credentials = FakeCredentials()
-        repository = CursorRepository(CursorApi({ credentials.read("api") },
-            { credentials.read("cookie") }, server.url("/"), server.url("/")), cache, credentials)
+        repository =
+            CursorRepository(
+                CursorApi(
+                    { credentials.read("api") },
+                    { credentials.read("cookie") },
+                    server.url("/"),
+                    server.url("/"),
+                ),
+                cache,
+                credentials,
+            )
     }
 
-    @After fun cleanup() { server.shutdown() }
+    @After
+    fun cleanup() {
+        server.shutdown()
+    }
 
-    @Test fun paginationFollowsCursorAndDeduplicatesIds() = runTest {
+    @Test
+    fun paginationFollowsCursorAndDeduplicatesIds() = runTest {
         server.enqueue(MockResponse().setBody("""{"items":[{"id":"a"}],"nextCursor":"two"}"""))
         server.enqueue(MockResponse().setBody("""{"items":[{"id":"a"},{"id":"b"}]}"""))
         repository.refreshAgents()
@@ -48,7 +62,8 @@ class RepositoryTest {
         assertTrue(server.takeRequest().path!!.contains("cursor=two"))
     }
 
-    @Test fun usage401ClearsPrivateSnapshotAndStopsSession() = runTest {
+    @Test
+    fun usage401ClearsPrivateSnapshotAndStopsSession() = runTest {
         cache.put(CacheEntry("usage", "{\"cursorUsed\":32.0}", 1))
         server.enqueue(MockResponse().setResponseCode(401))
         runCatching { repository.refreshUsage() }
@@ -56,7 +71,8 @@ class RepositoryTest {
         assertNull(credentials.read("cookie"))
     }
 
-    @Test fun logoutClearsCredentialsAndEveryCachedSurface() = runTest {
+    @Test
+    fun logoutClearsCredentialsAndEveryCachedSurface() = runTest {
         cache.put(CacheEntry("agents", "{\"items\":[]}", 1))
         repository.disconnect()
         assertNull(credentials.read("api"))
@@ -64,10 +80,14 @@ class RepositoryTest {
         assertNull(repository.agents.first())
     }
 
-    @Test fun stream410FetchesFinalRunWithoutReplayingOldStream() = runTest {
-        server.enqueue(MockResponse().setResponseCode(410)
-            .setBody("""{"error":{"code":"stream_expired"}}"""))
-        server.enqueue(MockResponse().setBody("""{"id":"r","status":"FINISHED","result":"Final"}"""))
+    @Test
+    fun stream410FetchesFinalRunWithoutReplayingOldStream() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(410).setBody("""{"error":{"code":"stream_expired"}}""")
+        )
+        server.enqueue(
+            MockResponse().setBody("""{"id":"r","status":"FINISHED","result":"Final"}""")
+        )
         val values = repository.stream("a", "r").toList()
         assertEquals("Final", values.last().string("text"))
         assertEquals(2, server.requestCount)
@@ -75,18 +95,49 @@ class RepositoryTest {
         assertEquals("/v1/agents/a/runs/r", server.takeRequest().path)
     }
 
-    @Test fun streamDuplicateEventsDoNotDuplicateTextAndCursorPersistsAfterProcessing() = runTest {
-        server.enqueue(MockResponse().setBody(
-            "id: one\nevent: assistant\ndata: {\"text\":\"Hello\"}\n\n" +
-                "id: one\nevent: assistant\ndata: {\"text\":\"Hello\"}\n\n" +
-                "id: end\nevent: result\ndata: {\"text\":\"Hello\"}\n\n" +
-                "id: end\nevent: done\ndata: {}\n\n",
-        ))
+    @Test
+    fun streamDuplicateEventsDoNotDuplicateTextAndCursorPersistsAfterProcessing() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setBody(
+                    "id: one\nevent: assistant\ndata: {\"text\":\"Hello\"}\n\n" +
+                        "id: one\nevent: assistant\ndata: {\"text\":\"Hello\"}\n\n" +
+                        "id: end\nevent: result\ndata: {\"text\":\"Hello\"}\n\n" +
+                        "id: end\nevent: done\ndata: {}\n\n"
+                )
+        )
         assertEquals("Hello", repository.stream("a", "r").toList().last().string("text"))
         assertTrue(cache.get("stream/a/r")!!.json.contains("end"))
     }
 
-    @Test fun repositoryPickerUsesHourlyCache() = runTest {
+    @Test
+    fun logoutWaitsForWebSessionCleanup() = runTest {
+        var cleared = false
+        val local =
+            CursorRepository(
+                CursorApi({ "fixture" }, { "cookie" }, server.url("/"), server.url("/")),
+                cache,
+                credentials,
+            ) {
+                kotlinx.coroutines.delay(50)
+                cleared = true
+            }
+        local.disconnect()
+        assertTrue(cleared)
+        assertNull(credentials.read("cookie"))
+    }
+
+    @Test
+    fun streamErrorDoesNotAppearAsSuccessfulCompletion() = runTest {
+        server.enqueue(
+            MockResponse().setBody("event: error\ndata: {\"code\":\"usage_limit_exceeded\"}\n\n")
+        )
+        val error = runCatching { repository.stream("a", "r").toList() }.exceptionOrNull()
+        assertEquals("usage_limit_exceeded", (error as app.cursor.android.data.ApiFailure).code)
+    }
+
+    @Test
+    fun repositoryPickerUsesHourlyCache() = runTest {
         server.enqueue(MockResponse().setBody("""{"items":[{"url":"https://github.com/a/b"}]}"""))
         repository.repositories()
         repository.repositories()
@@ -96,7 +147,9 @@ class RepositoryTest {
 
 class FakeCredentials : Credentials {
     private val values = mutableMapOf("api" to "fixture", "cookie" to "session=fixture")
+
     override fun read(name: String) = values[name]
+
     override fun write(name: String, value: String?) {
         if (value == null) values.remove(name) else values[name] = value
     }
@@ -104,8 +157,16 @@ class FakeCredentials : Credentials {
 
 class FakeCache : CacheDao {
     private val entries = MutableStateFlow<Map<String, CacheEntry>>(emptyMap())
+
     override fun observe(key: String) = entries.map { it[key] }
+
     override suspend fun get(key: String) = entries.value[key]
-    override suspend fun put(entry: CacheEntry) { entries.value += entry.key to entry }
-    override suspend fun clear() { entries.value = emptyMap() }
+
+    override suspend fun put(entry: CacheEntry) {
+        entries.value += entry.key to entry
+    }
+
+    override suspend fun clear() {
+        entries.value = emptyMap()
+    }
 }

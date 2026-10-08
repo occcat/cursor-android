@@ -12,11 +12,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UsageTest {
-    @Test fun exactPoolsAndNumericStringsRemainIndependent() {
-        val json = Json.parseToJsonElement("""{
+    @Test
+    fun exactPoolsAndNumericStringsRemainIndependent() {
+        val json =
+            Json.parseToJsonElement(
+                    """{
             "individualUsage":{"plan":{"autoPercentUsed":"32","apiPercentUsed":61,
             "used":999999,"limit":1}},"isUnlimited":false
-        }""").jsonObject
+        }"""
+                )
+                .jsonObject
         val usage = UsageSnapshot.fromJson(json, 42)
         assertEquals(68.0, usage.value(true, true)!!, 0.0)
         assertEquals(39.0, usage.value(false, true)!!, 0.0)
@@ -24,27 +29,31 @@ class UsageTest {
         assertEquals(42, usage.fetchedAt)
     }
 
-    @Test fun invalidPercentIsUnknownRatherThanZero() {
+    @Test
+    fun invalidPercentIsUnknownRatherThanZero() {
         listOf("", "NaN", "Infinity", "true", " 2", "3%", "0x20", "1e4").forEach {
             assertNull(UsageSnapshot.percent(JsonPrimitive(it)))
         }
         assertNull(UsageSnapshot.percent(JsonPrimitive(true)))
     }
 
-    @Test fun partialUsageKeepsMissingSlotAndClampsDisplayOnly() {
+    @Test
+    fun partialUsageKeepsMissingSlotAndClampsDisplayOnly() {
         val usage = UsageSnapshot(cursorUsed = 130.0)
         assertEquals(0.0, usage.value(true, true)!!, 0.0)
         assertEquals(130.0, usage.cursorUsed!!, 0.0)
         assertNull(usage.value(false, true))
     }
 
-    @Test fun unlimitedHasNoPaceOrResetWarning() {
+    @Test
+    fun unlimitedHasNoPaceOrResetWarning() {
         val usage = UsageSnapshot(unlimited = true, cycleEnd = 10)
         assertNull(usage.pace(20))
         assertFalse(usage.pendingReset(20))
     }
 
-    @Test fun paceTargetsBillingDayEndAndThresholdIsStrict() {
+    @Test
+    fun paceTargetsBillingDayEndAndThresholdIsStrict() {
         val start = Instant.parse("2026-10-01T12:00:00Z").toEpochMilli()
         val usage = UsageSnapshot(cycleStart = start, cycleEnd = start + 30 * UsageSnapshot.day)
         val pace = usage.pace(start)!!
@@ -54,15 +63,17 @@ class UsageTest {
         assertEquals(-1, pace.category(pace.targetUsed - 5.01))
     }
 
-    @Test fun expiredCyclePreservesOldValuesUntilServerReturnsNewCycle() {
-        val usage = UsageSnapshot(cursorUsed = 32.0, cycleStart = 0,
-            cycleEnd = 30 * UsageSnapshot.day)
+    @Test
+    fun expiredCyclePreservesOldValuesUntilServerReturnsNewCycle() {
+        val usage =
+            UsageSnapshot(cursorUsed = 32.0, cycleStart = 0, cycleEnd = 30 * UsageSnapshot.day)
         assertTrue(usage.pendingReset(31 * UsageSnapshot.day))
         assertEquals(68.0, usage.value(true, true)!!, 0.0)
         assertNull(usage.pace(31 * UsageSnapshot.day))
     }
 
-    @Test fun invalidStartUsesPreviousCalendarMonthAndMarksEstimate() {
+    @Test
+    fun invalidStartUsesPreviousCalendarMonthAndMarksEstimate() {
         val end = Instant.parse("2024-03-31T12:00:00Z").toEpochMilli()
         val now = Instant.parse("2024-02-29T12:00:00Z").toEpochMilli()
         val pace = UsageSnapshot(cycleEnd = end).pace(now)!!

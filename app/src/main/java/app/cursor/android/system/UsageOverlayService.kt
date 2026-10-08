@@ -34,8 +34,10 @@ class UsageOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        startForeground(UsageNotifications.overlayId,
-            UsageNotifications.build(this, null, Preferences(), overlay = true))
+        startForeground(
+            UsageNotifications.overlayId,
+            UsageNotifications.build(this, null, Preferences(), overlay = true),
+        )
         if (!Settings.canDrawOverlays(this)) {
             stopSelf()
             return
@@ -44,33 +46,43 @@ class UsageOverlayService : Service() {
         val density = resources.displayMetrics.density
         val position = getSharedPreferences("overlay_position", MODE_PRIVATE)
         val bounds = resources.displayMetrics
-        val layout = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = (position.getFloat("x", 0.3f) * bounds.widthPixels).toInt()
-            y = (position.getFloat("y", 0.65f) * bounds.heightPixels).toInt()
-        }
-        val view = TextView(this).apply {
-            textSize = 13f
-            setTextColor(Color.rgb(240, 240, 240))
-            setPadding((16 * density).toInt(), (14 * density).toInt(),
-                (16 * density).toInt(), (14 * density).toInt())
-            background = GradientDrawable().apply {
-                setColor(Color.rgb(24, 24, 24))
-                cornerRadius = 28 * density
-                setStroke((density).toInt().coerceAtLeast(1), Color.rgb(75, 75, 75))
+        val layout =
+            WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT,
+                )
+                .apply {
+                    gravity = Gravity.TOP or Gravity.START
+                    x = (position.getFloat("x", 0.3f) * bounds.widthPixels).toInt()
+                    y = (position.getFloat("y", 0.65f) * bounds.heightPixels).toInt()
+                }
+        val view =
+            TextView(this).apply {
+                textSize = 13f
+                setTextColor(Color.rgb(240, 240, 240))
+                setPadding(
+                    (16 * density).toInt(),
+                    (14 * density).toInt(),
+                    (16 * density).toInt(),
+                    (14 * density).toInt(),
+                )
+                background =
+                    GradientDrawable().apply {
+                        setColor(Color.rgb(24, 24, 24))
+                        cornerRadius = 28 * density
+                        setStroke((density).toInt().coerceAtLeast(1), Color.rgb(75, 75, 75))
+                    }
+                contentDescription = "Cursor Usage"
+                setOnClickListener {
+                    startActivity(
+                        Intent(this@UsageOverlayService, MainActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
             }
-            contentDescription = "Cursor Usage"
-            setOnClickListener {
-                startActivity(Intent(this@UsageOverlayService, MainActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }
-        }
         var startX = 0f
         var startY = 0f
         var originX = 0
@@ -80,8 +92,11 @@ class UsageOverlayService : Service() {
         view.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    startX = event.rawX; startY = event.rawY
-                    originX = layout.x; originY = layout.y; dragging = false
+                    startX = event.rawX
+                    startY = event.rawY
+                    originX = layout.x
+                    originY = layout.y
+                    dragging = false
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -89,18 +104,26 @@ class UsageOverlayService : Service() {
                     val dy = event.rawY - startY
                     dragging = dragging || abs(dx) > slop || abs(dy) > slop
                     if (dragging) {
-                        layout.x = (originX + dx).toInt().coerceIn(0,
-                            (bounds.widthPixels - view.width).coerceAtLeast(0))
-                        layout.y = (originY + dy).toInt().coerceIn(0,
-                            (bounds.heightPixels - view.height).coerceAtLeast(0))
-                        runCatching { windows.updateViewLayout(view, layout) }.onFailure { stopSelf() }
+                        layout.x =
+                            (originX + dx)
+                                .toInt()
+                                .coerceIn(0, (bounds.widthPixels - view.width).coerceAtLeast(0))
+                        layout.y =
+                            (originY + dy)
+                                .toInt()
+                                .coerceIn(0, (bounds.heightPixels - view.height).coerceAtLeast(0))
+                        runCatching { windows.updateViewLayout(view, layout) }
+                            .onFailure { stopSelf() }
                     }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
                     if (!dragging) view.performClick()
-                    position.edit().putFloat("x", layout.x.toFloat() / bounds.widthPixels)
-                        .putFloat("y", layout.y.toFloat() / bounds.heightPixels).apply()
+                    position
+                        .edit()
+                        .putFloat("x", layout.x.toFloat() / bounds.widthPixels)
+                        .putFloat("y", layout.y.toFloat() / bounds.heightPixels)
+                        .apply()
                     true
                 }
                 else -> false
@@ -115,27 +138,50 @@ class UsageOverlayService : Service() {
         }
         val container = application as CursorApplication
         scope.launch {
-            combine(container.repository.usage, container.settings.preferences) { usage, preferences ->
-                usage to preferences
-            }.collect { (usage, preferences) ->
-                if (!Settings.canDrawOverlays(this@UsageOverlayService) || usage == null ||
-                    (!preferences.cursor && !preferences.other)) {
-                    stopSelf()
-                } else {
-                    view.text = buildList {
-                        if (preferences.cursor) add("Cursor ${usageValue(usage, true, preferences.remaining)}")
-                        if (preferences.other) add("Other ${usageValue(usage, false, preferences.remaining)}")
-                    }.joinToString("  ·  ") + "\n" + getString(
-                        if (preferences.remaining) app.cursor.android.R.string.remaining
-                        else app.cursor.android.R.string.used,
-                    )
-                    view.contentDescription = view.text
-                    getSystemService(android.app.NotificationManager::class.java).notify(
-                        UsageNotifications.overlayId,
-                        UsageNotifications.build(this@UsageOverlayService, usage, preferences, true),
-                    )
+            combine(container.repository.usage, container.settings.preferences) { usage, preferences
+                    ->
+                    usage to preferences
                 }
-            }
+                .collect { (usage, preferences) ->
+                    if (
+                        !Settings.canDrawOverlays(this@UsageOverlayService) ||
+                            usage == null ||
+                            (!preferences.cursor && !preferences.other)
+                    ) {
+                        stopSelf()
+                    } else {
+                        view.text =
+                            buildList {
+                                    if (preferences.cursor)
+                                        add(
+                                            "Cursor " +
+                                                usageValue(usage, true, preferences.remaining)
+                                        )
+                                    if (preferences.other)
+                                        add(
+                                            "Other " +
+                                                usageValue(usage, false, preferences.remaining)
+                                        )
+                                }
+                                .joinToString("  ·  ") +
+                                "\n" +
+                                getString(
+                                    if (preferences.remaining) app.cursor.android.R.string.remaining
+                                    else app.cursor.android.R.string.used
+                                )
+                        view.contentDescription = view.text
+                        getSystemService(android.app.NotificationManager::class.java)
+                            .notify(
+                                UsageNotifications.overlayId,
+                                UsageNotifications.build(
+                                    this@UsageOverlayService,
+                                    usage,
+                                    preferences,
+                                    true,
+                                ),
+                            )
+                    }
+                }
         }
     }
 
