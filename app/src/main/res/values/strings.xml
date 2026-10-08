@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Cursor Android</string>
+    <string name="usage_channel">Cursor Usage</string>
+    <string name="usage_description">Account quota snapshots with last update time</string>
+    <string name="remaining">remaining</string>
+    <string name="used">used</string>
+    <string name="refresh">Refresh</string>
+    <string name="stop">Stop overlay</string>
+    <string name="open_usage">Open usage</string>
+    <string name="updated">Updated %1$s</string>
+    <string name="pending_reset">Awaiting billing cycle refresh</string>
+    <string name="private_notification">Open Cursor Android to view usage</string>
+</resources>

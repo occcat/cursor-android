@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Cursor Android</string>
+    <string name="usage_channel">Cursor 用量</string>
+    <string name="usage_description">包含最近更新时间的账户额度快照</string>
+    <string name="remaining">剩余</string>
+    <string name="used">已用</string>
+    <string name="refresh">刷新</string>
+    <string name="stop">关闭浮窗</string>
+    <string name="open_usage">查看用量</string>
+    <string name="updated">更新于 %1$s</string>
+    <string name="pending_reset">等待新账单周期数据</string>
+    <string name="private_notification">打开 Cursor Android 查看用量</string>
+</resources>
