@@ -88,6 +88,7 @@ import app.cursor.android.data.Preferences
 import app.cursor.android.data.items
 import app.cursor.android.data.string
 import app.cursor.android.domain.UsageSnapshot
+import app.cursor.android.domain.isTrustedSignInUrl
 import app.cursor.android.system.UsageNotifications
 import app.cursor.android.system.UsageOverlayService
 import java.text.DateFormat
@@ -1101,14 +1102,7 @@ private fun WebSignIn(model: CursorViewModel, back: () -> Unit) {
                     ): Boolean {
                         val uri = request.url
                         if (uri.scheme != "https") return true
-                        val host = uri.host.orEmpty()
-                        val trusted =
-                            host == "cursor.com" ||
-                                host.endsWith(".cursor.com") ||
-                                host == "workos.com" ||
-                                host.endsWith(".workos.com") ||
-                                host == "accounts.google.com" ||
-                                host == "github.com"
+                        val trusted = isTrustedSignInUrl(uri.toString())
                         if (!trusted) openHttps(context, uri.toString())
                         return !trusted
                     }
