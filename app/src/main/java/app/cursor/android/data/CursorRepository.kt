@@ -6,6 +6,8 @@ import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -25,6 +27,10 @@ fun JsonObject.string(name: String): String = (get(name) as? JsonPrimitive)?.con
 fun JsonObject.items(): List<JsonObject> =
     (get("items") as? JsonArray)?.mapNotNull { it as? JsonObject }.orEmpty()
 
+data class AgentSnapshot(val agents: List<JsonObject>, val updatedAt: Long)
+
+data class Connections(val api: Boolean, val web: Boolean)
+
 class CursorRepository(
     val api: CursorApi,
     private val cache: CacheDao,
@@ -33,7 +39,18 @@ class CursorRepository(
 ) {
     private val lock = Mutex()
     @Volatile private var generation = 0L
-    val agents = cache.observe("agents").map { it?.json?.let(Json::parseToJsonElement)?.jsonObject }
+    private val connectionState = MutableStateFlow(Connections(connected, webConnected))
+    val connections = connectionState.asStateFlow()
+    val agentSnapshot =
+        cache.observe("agents").map { entry ->
+            entry?.let {
+                (Json.parseToJsonElement(it.json) as? JsonObject)?.let { value ->
+                    AgentSnapshot(value.items(), it.updatedAt)
+                }
+            }
+        }
+    val agents =
+        cache.observe("agents").map { it?.json?.let(Json::parseToJsonElement) as? JsonObject }
     val usage =
         cache.observe("usage").map {
             it?.json?.let { text -> Json.decodeFromString<UsageSnapshot?>(text) }
@@ -52,6 +69,7 @@ class CursorRepository(
             generation++
             cache.clear()
             credentials.write("api", key.trim())
+            connectionState.value = Connections(connected, webConnected)
         }
     }
 
@@ -62,6 +80,7 @@ class CursorRepository(
             generation++
             api.resetWebSession()
             credentials.write("cookie", cookie)
+            connectionState.value = Connections(connected, webConnected)
             cache.put(
                 CacheEntry(
                     "usage",
@@ -77,6 +96,7 @@ class CursorRepository(
             generation++
             credentials.write("api", null)
             credentials.write("cookie", null)
+            connectionState.value = Connections(false, false)
             api.resetWebSession()
             cache.clear()
             clearWebSession()
@@ -84,20 +104,34 @@ class CursorRepository(
 
     suspend fun refreshAgents(more: Boolean = false) {
         val session = generation
-        val previous = cache.get("agents")?.json?.let(Json::parseToJsonElement)?.jsonObject
+        val previous = cache.get("agents")?.json?.let(Json::parseToJsonElement) as? JsonObject
         val cursor = if (more) previous?.string("nextCursor") else null
         if (more && cursor.isNullOrBlank()) return
         val response =
-            api.request(
-                "GET",
-                listOf("v1", "agents"),
-                query =
-                    buildMap {
-                        put("limit", "100")
-                        put("includeArchived", "true")
-                        if (!cursor.isNullOrBlank()) put("cursor", cursor)
-                    },
-            )
+            try {
+                api.request(
+                    "GET",
+                    listOf("v1", "agents"),
+                    query =
+                        buildMap {
+                            put("limit", "100")
+                            put("includeArchived", "true")
+                            if (!cursor.isNullOrBlank()) put("cursor", cursor)
+                        },
+                )
+            } catch (failure: ApiFailure) {
+                if (failure.status == 401) {
+                    lock.withLock {
+                        if (generation == session) {
+                            generation++
+                            credentials.write("api", null)
+                            connectionState.value = Connections(false, webConnected)
+                            cache.put(CacheEntry("agents", "null", System.currentTimeMillis()))
+                        }
+                    }
+                }
+                throw failure
+            }
         val combined =
             if (more && previous != null) {
                 JsonObject(
@@ -124,7 +158,9 @@ class CursorRepository(
             if (failure.status == 401)
                 lock.withLock {
                     if (generation == session) {
+                        generation++
                         credentials.write("cookie", null)
+                        connectionState.value = Connections(connected, false)
                         cache.put(CacheEntry("usage", "null", System.currentTimeMillis()))
                     }
                 }

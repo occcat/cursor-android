@@ -18,7 +18,8 @@
             <meta-data android:name="androidx.work.WorkManagerInitializer"
                 android:value="androidx.startup" tools:node="remove" />
         </provider>
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name=".MainActivity" android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -30,5 +31,26 @@
                 android:value="User-started visible floating Cursor quota display with stop action; no continuous background network polling" />
         </service>
         <receiver android:name=".system.UsageActionReceiver" android:exported="false" />
+        <receiver android:name=".widget.UsageWidgetReceiver" android:exported="false"
+            android:label="@string/usage_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/usage_widget" />
+        </receiver>
+        <receiver android:name=".widget.AgentsWidgetReceiver" android:exported="false"
+            android:label="@string/agents_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/agents_widget" />
+        </receiver>
+        <receiver android:name=".widget.ActionsWidgetReceiver" android:exported="false"
+            android:label="@string/actions_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/actions_widget" />
+        </receiver>
     </application>
 </manifest>

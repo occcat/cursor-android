@@ -7,6 +7,8 @@ import app.cursor.android.data.CursorApi
 import app.cursor.android.data.CursorRepository
 import app.cursor.android.data.items
 import app.cursor.android.data.string
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -49,6 +51,42 @@ class RepositoryTest {
     @After
     fun cleanup() {
         server.shutdown()
+    }
+
+    @Test
+    fun lateAgentResponseCannotRestorePrivateDataAfterDisconnect() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setBody("{\"items\":[{\"id\":\"old-account\"}]}")
+                .setBodyDelay(200, java.util.concurrent.TimeUnit.MILLISECONDS)
+        )
+        val refresh = async(Dispatchers.IO) { repository.refreshAgents() }
+        org.junit.Assert.assertNotNull(server.takeRequest(5, java.util.concurrent.TimeUnit.SECONDS))
+        repository.disconnect()
+        refresh.await()
+        assertNull(repository.agentSnapshot.first())
+        assertEquals(false, repository.connections.first().api)
+    }
+
+    @Test
+    fun timestampedAgentSnapshotUsesPersistedFetchTimeAndClearsOnLogout() = runTest {
+        cache.put(CacheEntry("agents", "{\"items\":[{\"id\":\"a\"}]}", 1234))
+        assertEquals(1234, repository.agentSnapshot.first()!!.updatedAt)
+        repository.disconnect()
+        assertNull(repository.agentSnapshot.first())
+        assertEquals(false, repository.connections.first().api)
+        assertEquals(false, repository.connections.first().web)
+    }
+
+    @Test
+    fun expiredAgentKeyClearsWidgetSnapshotWithoutClearingWebConnection() = runTest {
+        cache.put(CacheEntry("agents", "{\"items\":[{\"id\":\"a\"}]}", 1234))
+        server.enqueue(MockResponse().setResponseCode(401))
+        runCatching { repository.refreshAgents() }
+        assertNull(repository.agentSnapshot.first())
+        assertNull(credentials.read("api"))
+        assertEquals(false, repository.connections.first().api)
+        assertEquals(true, repository.connections.first().web)
     }
 
     @Test
