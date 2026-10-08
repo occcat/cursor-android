@@ -128,6 +128,7 @@ function renderWidgets() {
             ? t("widgetSnapshot") : t(`${view.status}Note`)));
     } else if (view.family === "agents") {
         preview.append(element("p", "home-widget-mode", t("widgetCached")));
+        const agents = element("div", "home-widget-agents");
         for (const agent of widgetAgents(widgetShowTitles, view.wide)) {
             const row = element("div", "home-widget-agent");
             row.append(element("span", "widget-agent-icon", "◈"));
@@ -137,8 +138,9 @@ function renderWidgets() {
             body.append(element("strong", "", title),
                 element("span", "", t("widgetActive")));
             row.append(body);
-            preview.append(row);
+            agents.append(row);
         }
+        preview.append(agents);
     } else {
         const actions = element("div", "home-widget-actions");
         const icons = { inbox: "▤", newAgent: "+", usage: "◔", settings: "⚙" };
