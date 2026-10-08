@@ -37,9 +37,10 @@ test("compact actions retain two readable destinations and wide adds usage and s
         ["inbox", "newAgent", "usage", "settings"]);
 });
 
-test("recent agent titles are hidden until the preview explicitly opts in", () => {
+test("recent agent privacy and counts match the compact and wide native layouts", () => {
     assert.ok(widgetAgents().every(agent => agent.titleKey === null));
     assert.ok(widgetAgents(false, true).every(agent => agent.titleKey === null));
-    assert.deepEqual(widgetAgents(true).map(agent => agent.titleKey), ["agentOne", "agentTwo"]);
-    assert.equal(widgetAgents(true, true).length, 3);
+    assert.deepEqual(widgetAgents(true).map(agent => agent.titleKey), ["agentOne"]);
+    assert.deepEqual(widgetAgents(true, true).map(agent => agent.titleKey),
+        ["agentOne", "agentTwo"]);
 });

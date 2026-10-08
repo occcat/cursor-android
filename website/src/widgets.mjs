@@ -23,6 +23,6 @@ export function widgetPreview(state, family = "usage", size = "2x2") {
 }
 
 export function widgetAgents(showTitles = false, wide = false) {
-    const keys = wide ? ["agentOne", "agentTwo", "agentThree"] : ["agentOne", "agentTwo"];
+    const keys = wide ? ["agentOne", "agentTwo"] : ["agentOne"];
     return keys.map((key, index) => ({ titleKey: showTitles ? key : null, number: index + 1 }));
 }

@@ -367,6 +367,15 @@ dialog .button { margin-top: 10px; }
 .home-widget-agent { display: flex; gap: 10px; padding-block: 12px;
     border-top: 1px solid #ffffff12; }
 .home-widget-agent:last-child { padding-bottom: 1px; }
+.home-widget[data-family="agents"][data-size="4x2"] .home-widget-agents {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px;
+}
+.home-widget[data-family="agents"][data-size="4x2"] .home-widget-agent {
+    display: block; padding-block: 12px 1px;
+}
+.home-widget[data-family="agents"][data-size="4x2"] .widget-agent-icon {
+    display: block; margin-bottom: 9px;
+}
 .widget-agent-icon { color: #b8c5a0; font-size: 11px; margin-top: 2px; }
 .home-widget-agent > div { min-width: 0; }
 .home-widget-agent strong { display: block; font-size: 11px; font-weight: 450;
