@@ -2,6 +2,9 @@
 
 原生 Android 客户端，对齐 [cursor.com/agents](https://cursor.com/agents)。用来发起、跟进和审阅 Cloud Agent。它不是桌面 IDE，也不是账号与账单后台。
 
+2026-10-08 的接口调研、原生实现方案与双模型胶囊设计见[设计索引](docs/README.md)。
+其中的[交互原型](docs/design/cursor-android-prototype.html)使用演示数据，尚未接入 Android。
+
 官方原生应用目前是 [Cursor for iOS](https://cursor.com/docs/cloud-agent/mobile)。文档写明 Android 仍在计划中，现在手机上打开的是同一网址或它的 PWA。本仓库做那一层原生客户端，会话与网页、桌面 Agents Window 共用后端。
 
 ## 网页上要有的能力

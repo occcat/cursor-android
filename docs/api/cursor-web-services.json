@@ -1,0 +1,3407 @@
+{
+  "asOf": "2026-10-08",
+  "scope": "Public frontend descriptors and static call evidence; GrokBotService deliberately omitted. Compact protobuf field encoding retained: 9 string, 8 bool, 12 bytes, 3 int64, #n descriptor reference; ? optional, * repeated. Not a full .proto reconstruction.",
+  "services": [
+    {
+      "service": "aiserver.v1.BackgroundComposerService",
+      "methods": [
+        {
+          "method": "DesktopLease",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "BackgroundComposerDesktopLeaseRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "bc_id",
+              "jsonName": "bcId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "action",
+              "jsonName": "action",
+              "encoding": [
+                "#0"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "surface_id",
+              "jsonName": "surfaceId",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "BackgroundComposerDesktopLeaseResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "held",
+              "jsonName": "held",
+              "encoding": [
+                "8"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "2ixqj3j1sp_3o.js",
+              6379
+            ]
+          ]
+        },
+        {
+          "method": "DuplicateEnvironment",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "DuplicateEnvironmentRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "public_id",
+              "jsonName": "publicId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "name",
+              "jsonName": "name",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "DuplicateEnvironmentResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "new_environment_public_id",
+              "jsonName": "newEnvironmentPublicId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "name",
+              "jsonName": "name",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "copied_secret_count",
+              "jsonName": "copiedSecretCount",
+              "encoding": [
+                "5"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "0jg040lbtc37t.js",
+              100668
+            ]
+          ]
+        },
+        {
+          "method": "ForkBackgroundComposer",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ForkBackgroundComposerRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "source_bc_id",
+              "jsonName": "sourceBcId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "mode",
+              "jsonName": "mode",
+              "encoding": [
+                "#0"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "name",
+              "jsonName": "name",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "turn_count",
+              "jsonName": "turnCount",
+              "encoding": [
+                "13?"
+              ]
+            }
+          ],
+          "outputSchema": "ForkBackgroundComposerResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "composer",
+              "jsonName": "composer",
+              "encoding": [
+                "#0"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "bc_id",
+              "jsonName": "bcId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "source_bc_id",
+              "jsonName": "sourceBcId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "mode",
+              "jsonName": "mode",
+              "encoding": [
+                "#1"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "initial_run_id",
+              "jsonName": "initialRunId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "0usghw-wtdybb.js",
+              177858
+            ]
+          ]
+        },
+        {
+          "method": "GetBackgroundComposerEnvironmentVersion",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "GetBackgroundComposerEnvironmentVersionRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "bc_id",
+              "jsonName": "bcId",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "GetBackgroundComposerEnvironmentVersionResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "environment_version_history",
+              "jsonName": "environmentVersionHistory",
+              "encoding": [
+                "#0*"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "25c92ura9_gu0.js",
+              55284
+            ],
+            [
+              "1yhem30hm1w9g.js",
+              34176
+            ],
+            [
+              "2hxdq1myc8_1y.js",
+              33736
+            ]
+          ]
+        },
+        {
+          "method": "GetEnvironmentHistory",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "GetEnvironmentHistoryRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "repo_config",
+              "jsonName": "repoConfig",
+              "encoding": [
+                "#0?"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "environment_public_ids",
+              "jsonName": "environmentPublicIds",
+              "encoding": [
+                "9*"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "limit",
+              "jsonName": "limit",
+              "encoding": [
+                "5?"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "dashboard_scope_id",
+              "jsonName": "dashboardScopeId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "GetEnvironmentHistoryResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "effective_events",
+              "jsonName": "effectiveEvents",
+              "encoding": [
+                "#0*"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "environment_histories",
+              "jsonName": "environmentHistories",
+              "encoding": [
+                "#1*"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "truncated",
+              "jsonName": "truncated",
+              "encoding": [
+                "8"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "dashboard_scope_unavailable",
+              "jsonName": "dashboardScopeUnavailable",
+              "encoding": [
+                "8"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "2g3_2uqtgfdvz.js",
+              10563
+            ],
+            [
+              "3irohebn78ohn.js",
+              26752
+            ]
+          ]
+        },
+        {
+          "method": "ListAgentStoreEntries",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ListAgentStoreEntriesRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "store_id",
+              "jsonName": "storeId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "relative_path",
+              "jsonName": "relativePath",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "share_id",
+              "jsonName": "shareId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "ListAgentStoreEntriesResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "normalized_relative_path",
+              "jsonName": "normalizedRelativePath",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "entries",
+              "jsonName": "entries",
+              "encoding": [
+                "#0*"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "15rxqhgne36us.js",
+              3402
+            ]
+          ]
+        },
+        {
+          "method": "ListAgentStoreTombstones",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": false,
+          "inputSchema": "ListAgentStoreTombstonesRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "store_id",
+              "jsonName": "storeId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "page_size",
+              "jsonName": "pageSize",
+              "encoding": [
+                "5"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "page_token",
+              "jsonName": "pageToken",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "ListAgentStoreTombstonesResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "tombstones",
+              "jsonName": "tombstones",
+              "encoding": [
+                "#0*"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "next_page_token",
+              "jsonName": "nextPageToken",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "callRefs": []
+        },
+        {
+          "method": "ListAgentStores",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ListAgentStoresRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "n",
+              "jsonName": "n",
+              "encoding": [
+                "5"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "page_token",
+              "jsonName": "pageToken",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "ListAgentStoresResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "stores",
+              "jsonName": "stores",
+              "encoding": [
+                "#0*"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "has_more",
+              "jsonName": "hasMore",
+              "encoding": [
+                "8"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "next_page_token",
+              "jsonName": "nextPageToken",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "15rxqhgne36us.js",
+              1290
+            ],
+            [
+              "15rxqhgne36us.js",
+              1663
+            ]
+          ]
+        },
+        {
+          "method": "ListBackgroundComposerChildren",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ListBackgroundComposerChildrenRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "parent_bc_id",
+              "jsonName": "parentBcId",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "ListBackgroundComposerChildrenResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "composers",
+              "jsonName": "composers",
+              "encoding": [
+                "#0*"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "1967cx36cqm_b.js",
+              247343
+            ]
+          ]
+        },
+        {
+          "method": "ListSharedAgentStores",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ListSharedAgentStoresRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "limit",
+              "jsonName": "limit",
+              "encoding": [
+                "5"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "created_before_ms",
+              "jsonName": "createdBeforeMs",
+              "encoding": [
+                "1?"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "owning_user_id",
+              "jsonName": "owningUserId",
+              "encoding": [
+                "5?"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "search_query",
+              "jsonName": "searchQuery",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "scope",
+              "jsonName": "scope",
+              "encoding": [
+                "#0?"
+              ]
+            },
+            {
+              "tag": "6",
+              "protoName": "created_before_share_id",
+              "jsonName": "createdBeforeShareId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "ListSharedAgentStoresResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "listings",
+              "jsonName": "listings",
+              "encoding": [
+                "#0*"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "has_more",
+              "jsonName": "hasMore",
+              "encoding": [
+                "8"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "next_created_before_ms",
+              "jsonName": "nextCreatedBeforeMs",
+              "encoding": [
+                "1?"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "next_created_before_share_id",
+              "jsonName": "nextCreatedBeforeShareId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "15rxqhgne36us.js",
+              1691
+            ],
+            [
+              "1mo4ab_gys8os.js",
+              51425
+            ]
+          ]
+        },
+        {
+          "method": "MigrateEnvironmentToOrigin",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "MigrateEnvironmentToOriginRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "public_id",
+              "jsonName": "publicId",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "MigrateEnvironmentToOriginResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "new_environment_public_id",
+              "jsonName": "newEnvironmentPublicId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "repo_urls",
+              "jsonName": "repoUrls",
+              "encoding": [
+                "9*"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "copied_secret_count",
+              "jsonName": "copiedSecretCount",
+              "encoding": [
+                "5"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "141ulw9htzfao.js",
+              174015
+            ],
+            [
+              "0jg040lbtc37t.js",
+              101462
+            ]
+          ]
+        },
+        {
+          "method": "PublishBackgroundComposerTempRepo",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "PublishBackgroundComposerTempRepoRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "bc_id",
+              "jsonName": "bcId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "new_name",
+              "jsonName": "newName",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "visibility",
+              "jsonName": "visibility",
+              "encoding": [
+                "#0"
+              ]
+            }
+          ],
+          "outputSchema": "PublishBackgroundComposerTempRepoResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "owner",
+              "jsonName": "owner",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "name",
+              "jsonName": "name",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "canonical_repo_url",
+              "jsonName": "canonicalRepoUrl",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "published",
+              "jsonName": "published",
+              "encoding": [
+                "8"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "visibility",
+              "jsonName": "visibility",
+              "encoding": [
+                "#0"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "2k7f4k1nhqq1n.js",
+              130972
+            ]
+          ]
+        },
+        {
+          "method": "ReadAgentStoreFile",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ReadAgentStoreFileRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "store_id",
+              "jsonName": "storeId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "relative_path",
+              "jsonName": "relativePath",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "share_id",
+              "jsonName": "shareId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "ReadAgentStoreFileResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "content",
+              "jsonName": "content",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "document_owner_view",
+              "jsonName": "documentOwnerView",
+              "encoding": [
+                "#0?"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "15rxqhgne36us.js",
+              11603
+            ]
+          ]
+        },
+        {
+          "method": "RenameEnvironment",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "RenameEnvironmentRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "public_id",
+              "jsonName": "publicId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "name",
+              "jsonName": "name",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "write_source",
+              "jsonName": "writeSource",
+              "encoding": [
+                "#0?"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "2g3_2uqtgfdvz.js",
+              35093
+            ],
+            [
+              "3irohebn78ohn.js",
+              51282
+            ]
+          ]
+        },
+        {
+          "method": "RestoreEnvironmentVersion",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "RestoreEnvironmentVersionRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "environment_version_public_id",
+              "jsonName": "environmentVersionPublicId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "target_scope",
+              "jsonName": "targetScope",
+              "encoding": [
+                "#0"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "target_environment_public_id",
+              "jsonName": "targetEnvironmentPublicId",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "delete_personal_environment_public_id",
+              "jsonName": "deletePersonalEnvironmentPublicId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "RestoreEnvironmentVersionResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "environment",
+              "jsonName": "environment",
+              "encoding": [
+                "#0?"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "2g3_2uqtgfdvz.js",
+              20393
+            ],
+            [
+              "3irohebn78ohn.js",
+              36582
+            ]
+          ]
+        },
+        {
+          "method": "ShareAgentStore",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ShareAgentStoreRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "agent_id",
+              "jsonName": "agentId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "path_prefix",
+              "jsonName": "pathPrefix",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "store_id",
+              "jsonName": "storeId",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "source",
+              "jsonName": "source",
+              "encoding": [
+                "#0"
+              ]
+            }
+          ],
+          "outputSchema": "ShareAgentStoreResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "share_id",
+              "jsonName": "shareId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "share_url",
+              "jsonName": "shareUrl",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "1mo4ab_gys8os.js",
+              50702
+            ]
+          ]
+        },
+        {
+          "method": "StartSideChatBackgroundComposer",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "StartSideChatBackgroundComposerRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "parent_bc_id",
+              "jsonName": "parentBcId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "name",
+              "jsonName": "name",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "creation_source",
+              "jsonName": "creationSource",
+              "encoding": [
+                "#0"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "creation_id",
+              "jsonName": "creationId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "StartSideChatBackgroundComposerResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "composer",
+              "jsonName": "composer",
+              "encoding": [
+                "#0"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "1967cx36cqm_b.js",
+              248561
+            ]
+          ]
+        },
+        {
+          "method": "StreamBackgroundComposerUpdates",
+          "kind": "ServerStreaming",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "StreamBackgroundComposerUpdatesRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "resume_cursor",
+              "jsonName": "resumeCursor",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "team_id",
+              "jsonName": "teamId",
+              "encoding": [
+                "5?"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "snapshot_n",
+              "jsonName": "snapshotN",
+              "encoding": [
+                "5?"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "snapshot_include_archived",
+              "jsonName": "snapshotIncludeArchived",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "snapshot_include_hidden_sources",
+              "jsonName": "snapshotIncludeHiddenSources",
+              "encoding": [
+                "#0*"
+              ]
+            },
+            {
+              "tag": "6",
+              "protoName": "snapshot_include_pinned_state",
+              "jsonName": "snapshotIncludePinnedState",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "7",
+              "protoName": "snapshot_include_workers",
+              "jsonName": "snapshotIncludeWorkers",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "8",
+              "protoName": "snapshot_include_subagents",
+              "jsonName": "snapshotIncludeSubagents",
+              "encoding": [
+                "8?"
+              ]
+            }
+          ],
+          "outputSchema": "StreamBackgroundComposerUpdatesResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "snapshot",
+              "jsonName": "snapshot",
+              "encoding": [
+                "#0",
+                "response"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "event",
+              "jsonName": "event",
+              "encoding": [
+                "#1",
+                "response"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "heartbeat",
+              "jsonName": "heartbeat",
+              "encoding": [
+                "#2",
+                "response"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "42dvdlh3mz6-u.js",
+              18711
+            ]
+          ]
+        },
+        {
+          "method": "StreamConversation",
+          "kind": "ServerStreaming",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "StreamConversationRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "bc_id",
+              "jsonName": "bcId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "offset_key",
+              "jsonName": "offsetKey",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "filter_heavy_step_data",
+              "jsonName": "filterHeavyStepData",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "should_send_prefetched_blobs_first",
+              "jsonName": "shouldSendPrefetchedBlobsFirst",
+              "encoding": [
+                "8"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "pre_fetched_blob_ids",
+              "jsonName": "preFetchedBlobIds",
+              "encoding": [
+                "12*"
+              ]
+            },
+            {
+              "tag": "6",
+              "protoName": "prefetch_only_last_step_per_turn",
+              "jsonName": "prefetchOnlyLastStepPerTurn",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "7",
+              "protoName": "send_stream_signal_after_prefetch",
+              "jsonName": "sendStreamSignalAfterPrefetch",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "8",
+              "protoName": "max_blobs_after_prefetch",
+              "jsonName": "maxBlobsAfterPrefetch",
+              "encoding": [
+                "13?"
+              ]
+            },
+            {
+              "tag": "9",
+              "protoName": "allow_streaming_when_terminal_status",
+              "jsonName": "allowStreamingWhenTerminalStatus",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "10",
+              "protoName": "pre_fetched_blob_filter",
+              "jsonName": "preFetchedBlobFilter",
+              "encoding": [
+                "#0?"
+              ]
+            },
+            {
+              "tag": "11",
+              "protoName": "include_stream_heartbeats",
+              "jsonName": "includeStreamHeartbeats",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "12",
+              "protoName": "purpose",
+              "jsonName": "purpose",
+              "encoding": [
+                "#1?"
+              ]
+            },
+            {
+              "tag": "13",
+              "protoName": "expected_scope",
+              "jsonName": "expectedScope",
+              "encoding": [
+                "#2"
+              ]
+            },
+            {
+              "tag": "14",
+              "protoName": "max_turns_to_prefetch",
+              "jsonName": "maxTurnsToPrefetch",
+              "encoding": [
+                "13?"
+              ]
+            },
+            {
+              "tag": "15",
+              "protoName": "slim_cloud_agent_state",
+              "jsonName": "slimCloudAgentState",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "16",
+              "protoName": "tail_after_state_cursor",
+              "jsonName": "tailAfterStateCursor",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "17",
+              "protoName": "send_caught_up_signal",
+              "jsonName": "sendCaughtUpSignal",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "18",
+              "protoName": "prefetch_window_steps",
+              "jsonName": "prefetchWindowSteps",
+              "encoding": [
+                "13?"
+              ]
+            },
+            {
+              "tag": "19",
+              "protoName": "omit_task_transcripts_in_updates",
+              "jsonName": "omitTaskTranscriptsInUpdates",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "20",
+              "protoName": "preview_truncated_steps",
+              "jsonName": "previewTruncatedSteps",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "22",
+              "protoName": "omit_edit_full_file_contents",
+              "jsonName": "omitEditFullFileContents",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "23",
+              "protoName": "view",
+              "jsonName": "view",
+              "encoding": [
+                "#3?"
+              ]
+            }
+          ],
+          "outputSchema": "StreamConversationResponse",
+          "outputFields": [
+            {
+              "tag": "3",
+              "protoName": "initial_state",
+              "jsonName": "initialState",
+              "encoding": [
+                "#0",
+                "message"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "interaction_update_with_offset",
+              "jsonName": "interactionUpdateWithOffset",
+              "encoding": [
+                "#1",
+                "message"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "cloud_agent_state_with_id_and_offset",
+              "jsonName": "cloudAgentStateWithIdAndOffset",
+              "encoding": [
+                "#2",
+                "message"
+              ]
+            },
+            {
+              "tag": "6",
+              "protoName": "workflow_status_with_offset",
+              "jsonName": "workflowStatusWithOffset",
+              "encoding": [
+                "#3",
+                "message"
+              ]
+            },
+            {
+              "tag": "7",
+              "protoName": "prefetched_blobs",
+              "jsonName": "prefetchedBlobs",
+              "encoding": [
+                "#4",
+                "message"
+              ]
+            },
+            {
+              "tag": "8",
+              "protoName": "stream_signal",
+              "jsonName": "streamSignal",
+              "encoding": [
+                "#5",
+                "message"
+              ]
+            },
+            {
+              "tag": "9",
+              "protoName": "transient_error_with_offset",
+              "jsonName": "transientErrorWithOffset",
+              "encoding": [
+                "#6",
+                "message"
+              ]
+            },
+            {
+              "tag": "10",
+              "protoName": "dev_banner_message",
+              "jsonName": "devBannerMessage",
+              "encoding": [
+                "#7",
+                "message"
+              ]
+            },
+            {
+              "tag": "11",
+              "protoName": "worker_lifecycle_event_with_offset",
+              "jsonName": "workerLifecycleEventWithOffset",
+              "encoding": [
+                "#8",
+                "message"
+              ]
+            },
+            {
+              "tag": "12",
+              "protoName": "interaction_query_with_offset",
+              "jsonName": "interactionQueryWithOffset",
+              "encoding": [
+                "#9",
+                "message"
+              ]
+            },
+            {
+              "tag": "13",
+              "protoName": "read_only_shared_pod_lifecycle_event_with_offset",
+              "jsonName": "readOnlySharedPodLifecycleEventWithOffset",
+              "encoding": [
+                "#10",
+                "message"
+              ]
+            },
+            {
+              "tag": "14",
+              "protoName": "stream_heartbeat",
+              "jsonName": "streamHeartbeat",
+              "encoding": [
+                "#11",
+                "message"
+              ]
+            },
+            {
+              "tag": "15",
+              "protoName": "interaction_settled_with_offset",
+              "jsonName": "interactionSettledWithOffset",
+              "encoding": [
+                "#12",
+                "message"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "1ddm2xvkhz4x9.js",
+              39253
+            ]
+          ]
+        },
+        {
+          "method": "UndeleteAgentStoreFiles",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": false,
+          "inputSchema": "UndeleteAgentStoreFilesRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "store_id",
+              "jsonName": "storeId",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "files",
+              "jsonName": "files",
+              "encoding": [
+                "#0*"
+              ]
+            }
+          ],
+          "outputSchema": "UndeleteAgentStoreFilesResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "results",
+              "jsonName": "results",
+              "encoding": [
+                "#0*"
+              ]
+            }
+          ],
+          "callRefs": []
+        },
+        {
+          "method": "UnshareAgentStore",
+          "kind": "Unary",
+          "descriptorRef": [
+            "0trhuhkvsawxl.js",
+            43369
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "UnshareAgentStoreRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "share_id",
+              "jsonName": "shareId",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "1mo4ab_gys8os.js",
+              49526
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "service": "aiserver.v1.AgentStoreService",
+      "methods": [
+        {
+          "method": "ListAgentStoreEntries",
+          "kind": "Unary",
+          "descriptorRef": [
+            "1mo4ab_gys8os.js",
+            59942
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ListAgentStoreEntriesRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "store_id",
+              "jsonName": "storeId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "relative_path",
+              "jsonName": "relativePath",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "share_id",
+              "jsonName": "shareId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "ListAgentStoreEntriesResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "normalized_relative_path",
+              "jsonName": "normalizedRelativePath",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "entries",
+              "jsonName": "entries",
+              "encoding": [
+                "#0*"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "15rxqhgne36us.js",
+              3402
+            ]
+          ]
+        },
+        {
+          "method": "ListAgentStoreTombstones",
+          "kind": "Unary",
+          "descriptorRef": [
+            "1mo4ab_gys8os.js",
+            59942
+          ],
+          "hasStaticCall": false,
+          "inputSchema": "ListAgentStoreTombstonesRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "store_id",
+              "jsonName": "storeId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "page_size",
+              "jsonName": "pageSize",
+              "encoding": [
+                "5"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "page_token",
+              "jsonName": "pageToken",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "ListAgentStoreTombstonesResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "tombstones",
+              "jsonName": "tombstones",
+              "encoding": [
+                "#0*"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "next_page_token",
+              "jsonName": "nextPageToken",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "callRefs": []
+        },
+        {
+          "method": "ListAgentStores",
+          "kind": "Unary",
+          "descriptorRef": [
+            "1mo4ab_gys8os.js",
+            59942
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ListAgentStoresRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "n",
+              "jsonName": "n",
+              "encoding": [
+                "5"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "page_token",
+              "jsonName": "pageToken",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "ListAgentStoresResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "stores",
+              "jsonName": "stores",
+              "encoding": [
+                "#0*"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "has_more",
+              "jsonName": "hasMore",
+              "encoding": [
+                "8"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "next_page_token",
+              "jsonName": "nextPageToken",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "15rxqhgne36us.js",
+              1290
+            ],
+            [
+              "15rxqhgne36us.js",
+              1663
+            ]
+          ]
+        },
+        {
+          "method": "ListSharedAgentStores",
+          "kind": "Unary",
+          "descriptorRef": [
+            "1mo4ab_gys8os.js",
+            59942
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ListSharedAgentStoresRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "limit",
+              "jsonName": "limit",
+              "encoding": [
+                "5"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "created_before_ms",
+              "jsonName": "createdBeforeMs",
+              "encoding": [
+                "1?"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "owning_user_id",
+              "jsonName": "owningUserId",
+              "encoding": [
+                "5?"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "search_query",
+              "jsonName": "searchQuery",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "scope",
+              "jsonName": "scope",
+              "encoding": [
+                "#0?"
+              ]
+            },
+            {
+              "tag": "6",
+              "protoName": "created_before_share_id",
+              "jsonName": "createdBeforeShareId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "ListSharedAgentStoresResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "listings",
+              "jsonName": "listings",
+              "encoding": [
+                "#0*"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "has_more",
+              "jsonName": "hasMore",
+              "encoding": [
+                "8"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "next_created_before_ms",
+              "jsonName": "nextCreatedBeforeMs",
+              "encoding": [
+                "1?"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "next_created_before_share_id",
+              "jsonName": "nextCreatedBeforeShareId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "15rxqhgne36us.js",
+              1691
+            ],
+            [
+              "1mo4ab_gys8os.js",
+              51425
+            ]
+          ]
+        },
+        {
+          "method": "PresignAgentStoreReads",
+          "kind": "Unary",
+          "descriptorRef": [
+            "1mo4ab_gys8os.js",
+            59942
+          ],
+          "hasStaticCall": false,
+          "callRefs": []
+        },
+        {
+          "method": "ReadAgentStoreFile",
+          "kind": "Unary",
+          "descriptorRef": [
+            "1mo4ab_gys8os.js",
+            59942
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ReadAgentStoreFileRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "store_id",
+              "jsonName": "storeId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "relative_path",
+              "jsonName": "relativePath",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "share_id",
+              "jsonName": "shareId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "ReadAgentStoreFileResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "content",
+              "jsonName": "content",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "document_owner_view",
+              "jsonName": "documentOwnerView",
+              "encoding": [
+                "#0?"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "15rxqhgne36us.js",
+              11603
+            ]
+          ]
+        },
+        {
+          "method": "SetAgentStoreDocumentVisibility",
+          "kind": "Unary",
+          "descriptorRef": [
+            "1mo4ab_gys8os.js",
+            59942
+          ],
+          "hasStaticCall": false,
+          "callRefs": []
+        },
+        {
+          "method": "ShareAgentStore",
+          "kind": "Unary",
+          "descriptorRef": [
+            "1mo4ab_gys8os.js",
+            59942
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ShareAgentStoreRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "agent_id",
+              "jsonName": "agentId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "path_prefix",
+              "jsonName": "pathPrefix",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "store_id",
+              "jsonName": "storeId",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "source",
+              "jsonName": "source",
+              "encoding": [
+                "#0"
+              ]
+            }
+          ],
+          "outputSchema": "ShareAgentStoreResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "share_id",
+              "jsonName": "shareId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "share_url",
+              "jsonName": "shareUrl",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "1mo4ab_gys8os.js",
+              50702
+            ]
+          ]
+        },
+        {
+          "method": "UndeleteAgentStoreFiles",
+          "kind": "Unary",
+          "descriptorRef": [
+            "1mo4ab_gys8os.js",
+            59942
+          ],
+          "hasStaticCall": false,
+          "inputSchema": "UndeleteAgentStoreFilesRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "store_id",
+              "jsonName": "storeId",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "files",
+              "jsonName": "files",
+              "encoding": [
+                "#0*"
+              ]
+            }
+          ],
+          "outputSchema": "UndeleteAgentStoreFilesResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "results",
+              "jsonName": "results",
+              "encoding": [
+                "#0*"
+              ]
+            }
+          ],
+          "callRefs": []
+        },
+        {
+          "method": "UnshareAgentStore",
+          "kind": "Unary",
+          "descriptorRef": [
+            "1mo4ab_gys8os.js",
+            59942
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "UnshareAgentStoreRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "share_id",
+              "jsonName": "shareId",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "1mo4ab_gys8os.js",
+              49526
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "service": "aiserver.v1.MetricsService",
+      "methods": [
+        {
+          "method": "ReportDistribution",
+          "kind": "Unary",
+          "descriptorRef": [
+            "1p8h_thg_60q_.js",
+            709
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ReportMetricsRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "metrics",
+              "jsonName": "metrics",
+              "encoding": [
+                "9,#0"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "metrics_list",
+              "jsonName": "metricsList",
+              "encoding": [
+                "#1*"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "1p8h_thg_60q_.js",
+              1195
+            ],
+            [
+              "3ebx_xte4etet.js",
+              29639
+            ],
+            [
+              "22go0atdw1jak.js",
+              20435
+            ]
+          ]
+        },
+        {
+          "method": "ReportIncrement",
+          "kind": "Unary",
+          "descriptorRef": [
+            "2kx23d6enma5-.js",
+            6238
+          ],
+          "hasStaticCall": false,
+          "inputSchema": "ReportMetricsRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "metrics",
+              "jsonName": "metrics",
+              "encoding": [
+                "9,#0"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "metrics_list",
+              "jsonName": "metricsList",
+              "encoding": [
+                "#1*"
+              ]
+            }
+          ],
+          "callRefs": []
+        },
+        {
+          "method": "ReportDecrement",
+          "kind": "Unary",
+          "descriptorRef": [
+            "2kx23d6enma5-.js",
+            6238
+          ],
+          "hasStaticCall": false,
+          "inputSchema": "ReportMetricsRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "metrics",
+              "jsonName": "metrics",
+              "encoding": [
+                "9,#0"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "metrics_list",
+              "jsonName": "metricsList",
+              "encoding": [
+                "#1*"
+              ]
+            }
+          ],
+          "callRefs": []
+        },
+        {
+          "method": "ReportGauge",
+          "kind": "Unary",
+          "descriptorRef": [
+            "2kx23d6enma5-.js",
+            6238
+          ],
+          "hasStaticCall": false,
+          "inputSchema": "ReportMetricsRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "metrics",
+              "jsonName": "metrics",
+              "encoding": [
+                "9,#0"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "metrics_list",
+              "jsonName": "metricsList",
+              "encoding": [
+                "#1*"
+              ]
+            }
+          ],
+          "callRefs": []
+        }
+      ]
+    },
+    {
+      "service": "agent.v1.TmuxSessionService",
+      "methods": [
+        {
+          "method": "CreateSession",
+          "kind": "Unary",
+          "descriptorRef": [
+            "2kx23d6enma5-.js",
+            40040
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "CreateTmuxSessionRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "session_name",
+              "jsonName": "sessionName",
+              "encoding": [
+                "9?"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "display_name",
+              "jsonName": "displayName",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "kind",
+              "jsonName": "kind",
+              "encoding": [
+                "#0"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "process",
+              "jsonName": "process",
+              "encoding": [
+                "#1?"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "cwd",
+              "jsonName": "cwd",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "6",
+              "protoName": "env",
+              "jsonName": "env",
+              "encoding": [
+                "9,9"
+              ]
+            }
+          ],
+          "outputSchema": "CreateTmuxSessionResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "session",
+              "jsonName": "session",
+              "encoding": [
+                "#0"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "2kx23d6enma5-.js",
+              41834
+            ]
+          ]
+        },
+        {
+          "method": "ListSessions",
+          "kind": "Unary",
+          "descriptorRef": [
+            "2kx23d6enma5-.js",
+            40040
+          ],
+          "hasStaticCall": true,
+          "outputSchema": "ListTmuxSessionsResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "sessions",
+              "jsonName": "sessions",
+              "encoding": [
+                "#0*"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "2kx23d6enma5-.js",
+              41997
+            ]
+          ]
+        },
+        {
+          "method": "KillSession",
+          "kind": "Unary",
+          "descriptorRef": [
+            "2kx23d6enma5-.js",
+            40040
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "KillTmuxSessionRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "session_id",
+              "jsonName": "sessionId",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "KillTmuxSessionResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "success",
+              "jsonName": "success",
+              "encoding": [
+                "8"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "2kx23d6enma5-.js",
+              45424
+            ]
+          ]
+        },
+        {
+          "method": "AttachSession",
+          "kind": "Unary",
+          "descriptorRef": [
+            "2kx23d6enma5-.js",
+            40040
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "AttachTmuxSessionRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "session_id",
+              "jsonName": "sessionId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "cols",
+              "jsonName": "cols",
+              "encoding": [
+                "13"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "rows",
+              "jsonName": "rows",
+              "encoding": [
+                "13"
+              ]
+            }
+          ],
+          "outputSchema": "AttachTmuxSessionResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "pty_id",
+              "jsonName": "ptyId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "session",
+              "jsonName": "session",
+              "encoding": [
+                "#0"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "2kx23d6enma5-.js",
+              41942
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "service": "aiserver.v1.AppPublishService",
+      "methods": [
+        {
+          "method": "PublishApp",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            81170
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "PublishAppRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "archive_tar_gz",
+              "jsonName": "archiveTarGz",
+              "encoding": [
+                "12"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "slug",
+              "jsonName": "slug",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "repo_url",
+              "jsonName": "repoUrl",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "project_dir",
+              "jsonName": "projectDir",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "commit_sha",
+              "jsonName": "commitSha",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "6",
+              "protoName": "dirty",
+              "jsonName": "dirty",
+              "encoding": [
+                "8"
+              ]
+            },
+            {
+              "tag": "7",
+              "protoName": "bc_id",
+              "jsonName": "bcId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "8",
+              "protoName": "visibility",
+              "jsonName": "visibility",
+              "encoding": [
+                "#0"
+              ]
+            },
+            {
+              "tag": "9",
+              "protoName": "redeploy",
+              "jsonName": "redeploy",
+              "encoding": [
+                "8"
+              ]
+            },
+            {
+              "tag": "10",
+              "protoName": "apex",
+              "jsonName": "apex",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "PublishAppResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "publish_id",
+              "jsonName": "publishId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "slug",
+              "jsonName": "slug",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "step",
+              "jsonName": "step",
+              "encoding": [
+                "#0"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "url",
+              "jsonName": "url",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "access",
+              "jsonName": "access",
+              "encoding": [
+                "#1"
+              ]
+            },
+            {
+              "tag": "6",
+              "protoName": "apex",
+              "jsonName": "apex",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "3dmksujsx09br.js",
+              88415
+            ]
+          ]
+        },
+        {
+          "method": "GetPublishStatus",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            81170
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "GetPublishStatusRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "publish_id",
+              "jsonName": "publishId",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "GetPublishStatusResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "publish_id",
+              "jsonName": "publishId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "slug",
+              "jsonName": "slug",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "step",
+              "jsonName": "step",
+              "encoding": [
+                "#0"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "steps",
+              "jsonName": "steps",
+              "encoding": [
+                "#1*"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "url",
+              "jsonName": "url",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "6",
+              "protoName": "deployment_id",
+              "jsonName": "deploymentId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "7",
+              "protoName": "error_message",
+              "jsonName": "errorMessage",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "8",
+              "protoName": "visibility",
+              "jsonName": "visibility",
+              "encoding": [
+                "#2"
+              ]
+            },
+            {
+              "tag": "9",
+              "protoName": "access",
+              "jsonName": "access",
+              "encoding": [
+                "#3"
+              ]
+            },
+            {
+              "tag": "10",
+              "protoName": "commit_sha",
+              "jsonName": "commitSha",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "11",
+              "protoName": "dirty",
+              "jsonName": "dirty",
+              "encoding": [
+                "8"
+              ]
+            },
+            {
+              "tag": "12",
+              "protoName": "project_dir",
+              "jsonName": "projectDir",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "13",
+              "protoName": "apex",
+              "jsonName": "apex",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "14",
+              "protoName": "team_id",
+              "jsonName": "teamId",
+              "encoding": [
+                "3"
+              ]
+            },
+            {
+              "tag": "15",
+              "protoName": "team_name",
+              "jsonName": "teamName",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "16",
+              "protoName": "provisioning_detail",
+              "jsonName": "provisioningDetail",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "17",
+              "protoName": "database",
+              "jsonName": "database",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "3dmksujsx09br.js",
+              90583
+            ]
+          ]
+        },
+        {
+          "method": "ListApps",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            81170
+          ],
+          "hasStaticCall": true,
+          "outputSchema": "ListAppsResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "apps",
+              "jsonName": "apps",
+              "encoding": [
+                "#0*"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "3dmksujsx09br.js",
+              88066
+            ]
+          ]
+        },
+        {
+          "method": "UnpublishApp",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            81170
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "UnpublishAppRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "slug",
+              "jsonName": "slug",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "apex",
+              "jsonName": "apex",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "UnpublishAppResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "slug",
+              "jsonName": "slug",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "2k7f4k1nhqq1n.js",
+              264060
+            ],
+            [
+              "3dmksujsx09br.js",
+              88772
+            ]
+          ]
+        },
+        {
+          "method": "UpdateApp",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            81170
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "UpdateAppRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "slug",
+              "jsonName": "slug",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "new_slug",
+              "jsonName": "newSlug",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "visibility",
+              "jsonName": "visibility",
+              "encoding": [
+                "#0"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "apex",
+              "jsonName": "apex",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "require_confirmation_for_updates",
+              "jsonName": "requireConfirmationForUpdates",
+              "encoding": [
+                "8?"
+              ]
+            },
+            {
+              "tag": "6",
+              "protoName": "mute_redeploy_prompts",
+              "jsonName": "muteRedeployPrompts",
+              "encoding": [
+                "8?"
+              ]
+            }
+          ],
+          "outputSchema": "UpdateAppResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "app",
+              "jsonName": "app",
+              "encoding": [
+                "#0"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "2k7f4k1nhqq1n.js",
+              264647
+            ],
+            [
+              "3dmksujsx09br.js",
+              83927
+            ]
+          ]
+        },
+        {
+          "method": "ListPublishProposals",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            81170
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ListPublishProposalsRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "bc_id",
+              "jsonName": "bcId",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "ListPublishProposalsResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "proposals",
+              "jsonName": "proposals",
+              "encoding": [
+                "#0*"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "3dmksujsx09br.js",
+              90102
+            ]
+          ]
+        },
+        {
+          "method": "ConfirmPublishProposal",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            81170
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ConfirmPublishProposalRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "proposal_id",
+              "jsonName": "proposalId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "slug",
+              "jsonName": "slug",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "visibility",
+              "jsonName": "visibility",
+              "encoding": [
+                "#0"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "via",
+              "jsonName": "via",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "require_confirmation_for_updates",
+              "jsonName": "requireConfirmationForUpdates",
+              "encoding": [
+                "8?"
+              ]
+            }
+          ],
+          "outputSchema": "ConfirmPublishProposalResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "proposal",
+              "jsonName": "proposal",
+              "encoding": [
+                "#0"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "publish",
+              "jsonName": "publish",
+              "encoding": [
+                "#1"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "3dmksujsx09br.js",
+              87499
+            ]
+          ]
+        },
+        {
+          "method": "DismissPublishProposal",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            81170
+          ],
+          "hasStaticCall": false,
+          "inputSchema": "DismissPublishProposalRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "proposal_id",
+              "jsonName": "proposalId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "via",
+              "jsonName": "via",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "DismissPublishProposalResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "proposal",
+              "jsonName": "proposal",
+              "encoding": [
+                "#0"
+              ]
+            }
+          ],
+          "callRefs": []
+        }
+      ]
+    },
+    {
+      "service": "agent.v1.PtyHostService",
+      "methods": [
+        {
+          "method": "SpawnPty",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            126620
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "SpawnPtyRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "process",
+              "jsonName": "process",
+              "encoding": [
+                "#0?"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "cwd",
+              "jsonName": "cwd",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "env",
+              "jsonName": "env",
+              "encoding": [
+                "9,9"
+              ]
+            },
+            {
+              "tag": "4",
+              "protoName": "cols",
+              "jsonName": "cols",
+              "encoding": [
+                "13"
+              ]
+            },
+            {
+              "tag": "5",
+              "protoName": "rows",
+              "jsonName": "rows",
+              "encoding": [
+                "13"
+              ]
+            }
+          ],
+          "outputSchema": "SpawnPtyResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "pty_id",
+              "jsonName": "ptyId",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "3dmksujsx09br.js",
+              129946
+            ],
+            [
+              "3dmksujsx09br.js",
+              133617
+            ]
+          ]
+        },
+        {
+          "method": "AttachPty",
+          "kind": "ServerStreaming",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            126620
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "AttachPtyRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "pty_id",
+              "jsonName": "ptyId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "last_event_id",
+              "jsonName": "lastEventId",
+              "encoding": [
+                "9?"
+              ]
+            }
+          ],
+          "outputSchema": "PtyEvent",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "event_id",
+              "jsonName": "eventId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "pty_data",
+              "jsonName": "ptyData",
+              "encoding": [
+                "#0",
+                "data"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "pty_exited",
+              "jsonName": "ptyExited",
+              "encoding": [
+                "#1",
+                "data"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "3dmksujsx09br.js",
+              134748
+            ]
+          ]
+        },
+        {
+          "method": "SendInput",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            126620
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "SendInputRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "pty_id",
+              "jsonName": "ptyId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "data",
+              "jsonName": "data",
+              "encoding": [
+                "12"
+              ]
+            }
+          ],
+          "outputSchema": "SendInputResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "success",
+              "jsonName": "success",
+              "encoding": [
+                "8"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "1kl0yrx6u4_k9.js",
+              48766
+            ],
+            [
+              "1kl0yrx6u4_k9.js",
+              49036
+            ],
+            [
+              "1kl0yrx6u4_k9.js",
+              49562
+            ]
+          ]
+        },
+        {
+          "method": "ResizePty",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            126620
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "ResizePtyRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "pty_id",
+              "jsonName": "ptyId",
+              "encoding": [
+                "9"
+              ]
+            },
+            {
+              "tag": "2",
+              "protoName": "cols",
+              "jsonName": "cols",
+              "encoding": [
+                "13"
+              ]
+            },
+            {
+              "tag": "3",
+              "protoName": "rows",
+              "jsonName": "rows",
+              "encoding": [
+                "13"
+              ]
+            }
+          ],
+          "outputSchema": "ResizePtyResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "success",
+              "jsonName": "success",
+              "encoding": [
+                "8"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "3dmksujsx09br.js",
+              129542
+            ],
+            [
+              "3dmksujsx09br.js",
+              129844
+            ],
+            [
+              "3dmksujsx09br.js",
+              132935
+            ]
+          ]
+        },
+        {
+          "method": "ListPtys",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            126620
+          ],
+          "hasStaticCall": true,
+          "outputSchema": "ListPtysResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "ptys",
+              "jsonName": "ptys",
+              "encoding": [
+                "#0*"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "3dmksujsx09br.js",
+              130632
+            ]
+          ]
+        },
+        {
+          "method": "TerminatePty",
+          "kind": "Unary",
+          "descriptorRef": [
+            "3dmksujsx09br.js",
+            126620
+          ],
+          "hasStaticCall": true,
+          "inputSchema": "TerminatePtyRequest",
+          "inputFields": [
+            {
+              "tag": "1",
+              "protoName": "pty_id",
+              "jsonName": "ptyId",
+              "encoding": [
+                "9"
+              ]
+            }
+          ],
+          "outputSchema": "TerminatePtyResponse",
+          "outputFields": [
+            {
+              "tag": "1",
+              "protoName": "success",
+              "jsonName": "success",
+              "encoding": [
+                "8"
+              ]
+            }
+          ],
+          "callRefs": [
+            [
+              "3dmksujsx09br.js",
+              136368
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

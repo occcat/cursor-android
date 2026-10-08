@@ -11,3 +11,4 @@
 *.ap_
 *.aab
 output.json
+/.worktree/
