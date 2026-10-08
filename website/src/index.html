@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#14120b">
+    <title>Cursor Android — Your agents, within reach.</title>
+    <meta name="description" content="An independent, public-source Android client for Cursor
+        agents.
+        Follow runs and keep Cursor Model and Other Model usage within reach.">
+    <link rel="canonical" href="https://cursor-android.app/">
+    <meta property="og:title" content="Cursor Android — Your agents, within reach.">
+    <meta property="og:description" content="An independent, public-source Android client for
+        Cursor.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://cursor-android.app/">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/app.mjs"></script>
+</head>
+<body>
+    <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
+    <header class="site-header wrap">
+        <a class="brand" href="#" aria-label="Cursor Android home">
+            <img src="/favicon.svg" width="25" height="25" alt="">
+            <span>Cursor Android</span>
+        </a>
+        <nav aria-label="Main navigation" data-i18n-aria="navigation">
+            <a href="#experience" data-i18n="experience">Experience</a>
+            <a href="#widgets" data-i18n="widgets">Widgets</a>
+            <a href="https://github.com/occcat/cursor-android#readme" data-i18n="docs">Docs</a>
+            <a href="https://github.com/occcat/cursor-android/releases"
+                class="nav-changelog" data-i18n="changelog">Changelog</a>
+        </nav>
+        <div class="header-actions">
+            <button id="language" class="language" type="button" lang="zh-CN"
+                aria-label="Switch to Chinese">中文</button>
+            <a class="button small" href="#download" data-i18n="getApp">Get the app</a>
+        </div>
+    </header>
+    <main id="main">
+        <section class="hero wrap" aria-labelledby="hero-title">
+            <p class="eyebrow"><span class="live-dot"></span>
+                <span data-i18n="eyebrow">Independent. Public source. Built for Android.</span>
+            </p>
+            <h1 id="hero-title" data-i18n="headline">Your agents, within reach.</h1>
+            <p class="hero-copy" data-i18n="heroCopy">Follow the work. Check your usage.
+                Leave the desk behind.</p>
+            <div class="hero-actions">
+                <a class="button" href="#download">
+                    <span data-i18n="getAndroid">Get Cursor Android</span><span
+                        aria-hidden="true">↓</span>
+                </a>
+                <a class="text-link" href="https://github.com/occcat/cursor-android">
+                    <span data-i18n="viewSource">View source</span><span aria-hidden="true">↗</span>
+                </a>
+            </div>
+            <div class="product-stage" id="experience">
+                <div class="stage-header">
+                    <span class="mono" data-i18n="interactive">INTERACTIVE PREVIEW</span>
+                    <span data-i18n="sampleOnly">Sample data · No account connected</span>
+                </div>
+                <div class="stage-grid">
+                    <div class="stage-context">
+                        <span class="section-number">01 / <span data-i18n="inYourPocket">
+                            IN YOUR POCKET</span></span>
+                        <h2 data-i18n="stageHeadline">A little less checking.<br>A little more
+                            going.</h2>
+                        <p data-i18n="stageCopy">Two usage pools, a familiar inbox, and the small
+                            details that make a phone feel like the right place.</p>
+                        <div class="demo-tabs" role="tablist" aria-label="Preview screens"
+                            data-i18n-aria="previewScreens">
+                            <button type="button" role="tab" id="tab-usage" aria-selected="true"
+                                aria-controls="panel-usage" data-tab="usage" data-i18n="usage">
+                                Usage</button>
+                            <button type="button" role="tab" id="tab-inbox" aria-selected="false"
+                                aria-controls="panel-inbox" tabindex="-1" data-tab="inbox"
+                                data-i18n="agents">Agents</button>
+                            <button type="button" role="tab" id="tab-notification"
+                                aria-selected="false" aria-controls="panel-notification"
+                                tabindex="-1" data-tab="notification" data-i18n="notification">
+                                Notification</button>
+                        </div>
+                        <div class="demo-controls">
+                            <label for="scenario" data-i18n="tryState">Try a state</label>
+                            <select id="scenario" data-scenario>
+                                <option value="normal" data-i18n="normal">On track</option>
+                                <option value="tight" data-i18n="tight">Running low</option>
+                                <option value="offline" data-i18n="offline">Offline</option>
+                                <option value="stale" data-i18n="stale">Stale snapshot</option>
+                                <option value="expired" data-i18n="expired">Session expired</option>
+                                <option value="partial" data-i18n="partial">One pool
+                                    unavailable</option>
+                                <option value="unlimited" data-i18n="unlimited">Unlimited</option>
+                            </select>
+                            <div class="segmented" aria-label="Percentage display"
+                                data-i18n-aria="percentageDisplay">
+                                <button type="button" data-mode="remaining" aria-pressed="true"
+                                    data-i18n="remaining">Remaining</button>
+                                <button type="button" data-mode="used" aria-pressed="false"
+                                    data-i18n="used">Used</button>
+                            </div>
+                            <div class="pool-switches">
+                                <label><input type="checkbox" id="show-cursor" data-pool="cursor"
+                                    checked>
+                                    <span class="dot cursor"></span>Cursor Model</label>
+                                <label><input type="checkbox" id="show-other" data-pool="other"
+                                    checked>
+                                    <span class="dot other"></span>Other Model</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="phone-area">
+                        <div class="phone" aria-label="Interactive Android interface preview"
+                            data-i18n-aria="phonePreview">
+                            <div class="phone-status" aria-hidden="true">
+                                <span>9:41 <span id="status-icon">◈</span></span>
+                                <div class="camera"></div><span>▂▄▆ &nbsp; ▰</span>
+                            </div>
+                            <div class="phone-appbar">
+                                <span class="app-wordmark">Cursor Android</span>
+                                <span class="avatar" aria-hidden="true">A</span>
+                            </div>
+                            <div class="phone-toolbar">
+                                <span data-i18n="yourWorkspace">Your workspace</span>
+                                <span class="chip" data-i18n="demo">Demo</span>
+                            </div>
+                            <div id="capsule" class="capsule" aria-live="polite"></div>
+                            <p id="capsule-hidden" class="empty-note" hidden
+                                data-i18n="capsuleHidden">Both pools hidden. Your workspace stays
+                                    clear.</p>
+                            <div id="panel-usage" class="phone-panel" role="tabpanel"
+                                aria-labelledby="tab-usage">
+                                <div class="panel-heading"><h3>Cursor Usage</h3>
+                                    <span class="chip" id="usage-plan">Pro</span></div>
+                                <p class="muted mode-label" data-mode-label>Remaining this cycle</p>
+                                <div id="pool-rows"></div>
+                                <p id="pool-empty" class="empty-note" hidden data-i18n="poolEmpty">
+                                    Enable a pool to bring it back.</p>
+                                <div class="cycle-card" id="cycle-card">
+                                    <span data-i18n="billingCycle">Illustrative billing cycle</span>
+                                    <strong data-i18n="cycleDates">Oct 1 – Oct 31</strong>
+                                    <div class="cycle-track" aria-hidden="true"><i></i></div>
+                                    <span data-i18n="cycleNote">Percentages come from each
+                                        pool.</span>
+                                </div>
+                                <div class="phone-note" id="state-note" role="status"></div>
+                            </div>
+                            <div id="panel-inbox" class="phone-panel" role="tabpanel"
+                                aria-labelledby="tab-inbox" hidden>
+                                <div class="panel-heading"><h3 data-i18n="agents">Agents</h3>
+                                    <span class="mono">3</span></div>
+                                <div class="agent-item"><span class="run-dot"></span><div>
+                                    <h4 data-i18n="agentOne">Polish the Android inbox</h4>
+                                    <p>cursor-android <span>·</span> <span
+                                        data-i18n="running">Running</span></p>
+                                </div><span class="agent-time">2m</span></div>
+                                <div class="agent-item"><span class="check-mark">✓</span><div>
+                                    <h4 data-i18n="agentTwo">Add offline usage states</h4>
+                                    <p>cursor-android <span>·</span> <span
+                                        data-i18n="completed">Completed</span>
+                                    </p></div><span class="agent-time">14m</span></div>
+                                <div class="agent-item"><span class="check-mark">✓</span><div>
+                                    <h4 data-i18n="agentThree">Review the release checklist</h4>
+                                    <p>cursor-android <span>·</span> <span
+                                        data-i18n="completed">Completed</span>
+                                    </p></div><span class="agent-time">1h</span></div>
+                                <div class="run-card"><div class="mono" data-i18n="latestUpdate">
+                                    LATEST UPDATE</div><p data-i18n="runCopy">The inbox is ready for
+                                    review. Checking the loading and empty states next.</p>
+                                    <div class="code-preview" aria-hidden="true">
+                                        <span>+ collectAsStateWithLifecycle()</span>
+                                        <span>+ CursorUsageCapsule(state)</span>
+                                    </div>
+                                </div>
+                                <p class="phone-note" data-i18n="inboxNote">Illustrative
+                                    conversation.
+                                    Explore the repository for current feature support.</p>
+                            </div>
+                            <div id="panel-notification" class="phone-panel notification-panel"
+                                role="tabpanel" aria-labelledby="tab-notification" hidden>
+                                <div class="notification-date" data-i18n="notificationDate">
+                                    Friday, October 9</div>
+                                <div class="quick-settings" aria-hidden="true">
+                                    <span>⌁</span><span>◉</span><span>☾</span><span>▣</span>
+                                </div>
+                                <article id="usage-notification" class="notification-card">
+                                    <div class="notification-title"><span>◈ &nbsp; Cursor
+                                        Android</span>
+                                        <span data-i18n="now">now</span></div>
+                                    <h4 data-mode-label>Remaining this cycle</h4>
+                                    <div id="notification-values"></div>
+                                    <p id="notification-state"></p>
+                                </article>
+                                <p id="notification-hidden" class="empty-note" hidden
+                                    data-i18n="notificationHidden">The usage notification is hidden
+                                    when both pools are off.</p>
+                                <p class="phone-note" data-i18n="notificationNote">One small status
+                                    icon. Both values in the notification drawer. Android controls
+                                    when background work runs.</p>
+                            </div>
+                            <div class="phone-bottom" aria-hidden="true"><span></span></div>
+                        </div>
+                    </div>
+                    <div class="floating-caption"><span class="caption-line"></span>
+                        <span data-i18n="capsuleCaption">Small on purpose.<br>Clear at a
+                            glance.</span>
+                    </div>
+                </div>
+                <div class="stage-footer"><span data-i18n="nativeFirst">NATIVE FIRST</span>
+                    <span>Kotlin · Jetpack Compose</span>
+                    <span data-i18n="twoPools">TWO POOLS. ONE CLEAR VIEW.</span></div>
+            </div>
+        </section>
+        <section class="features wrap" aria-labelledby="features-title">
+            <div class="section-heading"><span class="section-number">02 / <span
+                data-i18n="lessFriction">LESS FRICTION</span></span>
+                <h2 id="features-title" data-i18n="featuresTitle">Made for the moments<br>between
+                    desks.</h2>
+            </div>
+            <div class="feature-grid">
+                <article><span class="feature-symbol" aria-hidden="true">↗</span>
+                    <h3 data-i18n="featureAgents">Keep the work moving.</h3>
+                    <p data-i18n="featureAgentsCopy">A native starting point for Cloud Agents.
+                        Follow runs, read updates, and return to your work from Android.</p>
+                    <a href="https://github.com/occcat/cursor-android#readme" class="text-link"
+                        data-i18n="seeSupport">See current support ↗</a>
+                </article>
+                <article><div class="mini-capsule" aria-hidden="true">
+                    <span><i class="dot cursor"></i>68%</span><span><i class="dot
+                        other"></i>39%</span>
+                    </div><h3 data-i18n="featureUsage">Know where you stand.</h3>
+                    <p data-i18n="featureUsageCopy">Cursor Model and Other Model, side by side.
+                        Switch between remaining and used without changing the meaning
+                            underneath.</p>
+                    <a href="#experience" class="text-link" data-i18n="tryDemo">Try the preview
+                        ↑</a>
+                </article>
+                <article><span class="feature-symbol" aria-hidden="true">⌘</span>
+                    <h3 data-i18n="featureOpen">Keep it yours.</h3>
+                    <p data-i18n="featureOpenCopy">Public source, with a readable API inventory and
+                        an explicit feature roadmap. No Grok Bot integration or extra usage
+                            pool.</p>
+                    <a href="https://github.com/occcat/cursor-android" class="text-link"
+                        data-i18n="exploreCode">Explore the code ↗</a>
+                </article>
+            </div>
+        </section>
+        <section class="widgets wrap" id="widgets" aria-labelledby="widgets-title">
+            <div class="section-heading">
+                <span class="section-number">03 / <span data-i18n="homeScreen">HOME
+                    SCREEN</span></span>
+                <h2 id="widgets-title" data-i18n="widgetsTitle">A place for the essentials.<br>
+                    Before you open the app.</h2>
+            </div>
+            <div class="widget-stage">
+                <div class="widget-config">
+                    <p class="eyebrow" data-i18n="widgetPreviewLabel">WIDGET LAYOUT PREVIEW</p>
+                    <h3 data-i18n="widgetIntro">Three ways to keep Cursor close.</h3>
+                    <p class="widget-description" data-i18n="widgetDescription">Check two usage
+                        pools, revisit a recent agent, or open the next task. Choose a layout to
+                        explore with sample data.</p>
+                    <div class="widget-families" role="group" aria-label="Widget family"
+                        data-i18n-aria="widgetFamily">
+                        <button type="button" data-widget-family="usage" aria-pressed="true"
+                            data-i18n="usageWidget">Usage</button>
+                        <button type="button" data-widget-family="agents" aria-pressed="false"
+                            data-i18n="recentAgents">Recent agents</button>
+                        <button type="button" data-widget-family="actions" aria-pressed="false"
+                            data-i18n="quickActions">Quick actions</button>
+                    </div>
+                    <label for="widget-size" class="widget-label" data-i18n="widgetSize">
+                        Suggested size</label>
+                    <select id="widget-size"></select>
+                    <div id="widget-usage-controls">
+                        <label for="widget-scenario" class="widget-label" data-i18n="tryState">
+                            Try a state</label>
+                        <select id="widget-scenario" data-scenario>
+                            <option value="normal" data-i18n="normal">On track</option>
+                            <option value="tight" data-i18n="tight">Running low</option>
+                            <option value="offline" data-i18n="offline">Offline</option>
+                            <option value="stale" data-i18n="stale">Stale snapshot</option>
+                            <option value="expired" data-i18n="expired">Session expired</option>
+                            <option value="partial" data-i18n="partial">One pool
+                                unavailable</option>
+                            <option value="unlimited" data-i18n="unlimited">Unlimited</option>
+                        </select>
+                        <div class="segmented" aria-label="Percentage display"
+                            data-i18n-aria="percentageDisplay">
+                            <button type="button" data-mode="remaining" aria-pressed="true"
+                                data-i18n="remaining">Remaining</button>
+                            <button type="button" data-mode="used" aria-pressed="false"
+                                data-i18n="used">Used</button>
+                        </div>
+                        <div class="pool-switches">
+                            <label><input type="checkbox" data-pool="cursor" checked>
+                                <span class="dot cursor"></span>Cursor Model</label>
+                            <label><input type="checkbox" data-pool="other" checked>
+                                <span class="dot other"></span>Other Model</label>
+                        </div>
+                    </div>
+                    <div id="widget-agent-controls" class="pool-switches" hidden>
+                        <label><input id="widget-show-titles" type="checkbox">
+                            <span data-i18n="widgetShowTitles">Show agent titles</span></label>
+                        <p class="widget-sizing-note" data-i18n="widgetPrivacyNote">Titles stay
+                            private by default. Enable them in app settings when you want them
+                            on your home screen.</p>
+                    </div>
+                    <p class="widget-sizing-note" data-i18n="widgetSizingNote">Cell counts are
+                        suggestions. Exact sizing and resizing depend on your Android launcher.</p>
+                </div>
+                <div class="widget-canvas">
+                    <div class="widget-canvas-heading"><span class="mono" data-i18n="homePreview">
+                        HOME SCREEN PREVIEW</span><span data-i18n="sampleOnly">
+                        Sample data · No account connected</span></div>
+                    <div class="launcher-date" aria-hidden="true">
+                        <span data-i18n="notificationDate">Friday, October
+                            9</span><strong>09:41</strong>
+                    </div>
+                    <div class="widget-placement">
+                        <article id="widget-preview" class="home-widget" aria-live="polite"
+                            aria-label="Widget preview"
+                                data-i18n-aria="widgetPreviewAria"></article>
+                    </div>
+                    <p id="widget-feedback" class="widget-feedback" role="status"></p>
+                    <div class="launcher-dock" aria-hidden="true">
+                        <span>⌁</span><span>◉</span><span>▤</span>
+                        <img src="/favicon.svg" width="39" height="39" alt="">
+                    </div>
+                </div>
+            </div>
+            <div class="widget-footnotes">
+                <p data-i18n="widgetCachedNote">Recent agents shows cached records and their
+                    known status, not a live count of running agents.</p>
+                <p data-i18n="widgetActionNote">New agent opens the composer. Sending a task is
+                    always a separate action inside the app.</p>
+                <a href="https://github.com/occcat/cursor-android#readme" class="text-link"
+                    data-i18n="seeSupport">See current support ↗</a>
+            </div>
+        </section>
+        <section class="principles wrap">
+            <div><span class="section-number">04 / <span data-i18n="byDesign">BY
+                DESIGN</span></span>
+                <h2 data-i18n="principlesTitle">Useful information.<br>A little room to
+                    breathe.</h2></div>
+            <div class="principle-list">
+                <article><span>01</span><div><h3 data-i18n="principleOne">A capsule, not another
+                    dashboard.</h3>
+                    <p data-i18n="principleOneCopy">The two numbers you came for. Expand when you
+                        want more context, and hide either pool when you don’t.</p></div></article>
+                <article><span>02</span><div><h3 data-i18n="principleTwo">Honest when the network
+                    isn’t.</h3>
+                    <p data-i18n="principleTwoCopy">Missing data stays unknown. Offline snapshots
+                        keep their values; expired sessions ask you to reconnect. Unlimited never
+                        becomes a made-up percentage.</p>
+                    </div></article>
+                <article><span>03</span><div><h3 data-i18n="principleThree">An Android citizen.</h3>
+                    <p data-i18n="principleThreeCopy">Native controls, optional notifications, and
+                        explicit overlay permission. Background updates respect Android’s
+                            limits.</p>
+                    </div></article>
+            </div>
+        </section>
+        <section class="faq wrap" aria-labelledby="faq-title">
+            <div class="section-heading"><span class="section-number">05 / <span
+                data-i18n="goodToKnow">GOOD TO KNOW</span></span>
+                <h2 id="faq-title" data-i18n="faqTitle">A few things, before you go.</h2></div>
+            <div class="faq-list">
+                <details><summary data-i18n="faqOfficial">Is this an official Cursor app?</summary>
+                    <p data-i18n="faqOfficialAnswer">No. Cursor Android is an independent community
+                        project. It is not affiliated with or endorsed by Cursor or Anysphere.
+                        Cursor is a trademark of its respective owner.</p></details>
+                <details><summary data-i18n="faqAccount">Do I need a Cursor account?</summary>
+                    <p data-i18n="faqAccountAnswer">Yes, for live features. Cloud Agents use a
+                        Cursor
+                        API key. Usage belongs to the Cursor web session and is a separate
+                            connection.
+                        This website preview does not ask for credentials or access your
+                            account.</p></details>
+                <details><summary data-i18n="faqModels">What do the two model pools mean?</summary>
+                    <p data-i18n="faqModelsAnswer">They reflect Cursor’s own usage pools. Cursor
+                        Model
+                        uses autoPercentUsed; Other Model uses apiPercentUsed. They are not inferred
+                        from a model’s name, dollar spend, or token totals. There is no Grok Bot
+                            pool.</p>
+                    </details>
+                <details><summary data-i18n="faqBackground">Does usage update continuously in the
+                    background?</summary>
+                    <p data-i18n="faqBackgroundAnswer">No. Android schedules background refreshes
+                        and can delay them. Notifications and a floating capsule are optional, with
+                        permissions controlled by you. The app must show when data was last
+                            updated.</p>
+                    </details>
+                <details><summary data-i18n="faqScope">Does it replace the desktop editor?</summary>
+                    <p data-i18n="faqScopeAnswer">No. This project focuses on agents and usage on
+                        your phone. Advanced web tools and account management remain in Cursor.
+                        The repository tracks native support and planned capabilities
+                            explicitly.</p></details>
+                <details><summary data-i18n="faqDownload">Where do downloads come from?</summary>
+                    <p data-i18n="faqDownloadAnswer">Published Android packages are linked directly
+                        from this project’s GitHub releases. If no APK is published yet, you’ll see
+                        the release page and build instructions instead of a placeholder
+                            download.</p></details>
+            </div>
+        </section>
+        <section class="download wrap" id="download" aria-labelledby="download-title">
+            <span class="section-number" data-i18n="openInvitation">AN OPEN INVITATION</span>
+            <h2 id="download-title" data-i18n="downloadTitle">Take the work with you.</h2>
+            <p data-i18n="downloadCopy">Start with the app. Make it better with us.</p>
+            <div class="hero-actions">
+                <a id="download-link" class="button"
+                    href="https://github.com/occcat/cursor-android/releases">
+                    <span id="download-label" data-i18n="viewReleases">View releases</span>
+                    <span aria-hidden="true">↗</span></a>
+                <a href="https://github.com/occcat/cursor-android#build" class="text-link"
+                    data-i18n="buildSource">Build from source ↗</a>
+            </div>
+            <p id="release-status" class="release-status" data-i18n="releaseFallback">
+                Check GitHub for published builds and installation notes.</p>
+        </section>
+    </main>
+    <footer class="site-footer wrap">
+        <div><a class="brand" href="#"><img src="/favicon.svg" width="23" height="23" alt="">
+            <span>Cursor Android</span></a><p data-i18n="independent">An independent community
+                project.</p>
+            <p data-i18n="notAffiliated">Not affiliated with Cursor or Anysphere.</p></div>
+        <div class="footer-links"><a href="https://github.com/occcat/cursor-android"
+            data-i18n="source">Source</a>
+            <a href="https://github.com/occcat/cursor-android#readme" data-i18n="docs">Docs</a>
+            <a href="https://github.com/occcat/cursor-android/issues"
+                data-i18n="feedback">Feedback</a>
+            <a href="#privacy-dialog" id="privacy-link" data-i18n="privacy">Website
+                privacy</a></div>
+    </footer>
+    <dialog id="privacy-dialog" aria-labelledby="privacy-title">
+        <h2 id="privacy-title" data-i18n="privacy">Website privacy</h2>
+        <p data-i18n="privacyCopy">This static website has no analytics, account login, or
+            advertising
+            scripts. It stores only your language preference in this browser. The interactive
+                preview
+            uses sample data. Hosting and GitHub download requests are handled by their
+                providers.</p>
+        <form method="dialog"><button class="button" data-i18n="close">Close</button></form>
+    </dialog>
+    <noscript><p class="wrap noscript">The interactive preview needs JavaScript. Downloads, source,
+        documentation, and all other links work without it.</p></noscript>
+</body>
+</html>

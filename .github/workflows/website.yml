@@ -1,0 +1,53 @@
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/website.yml'
+  pull_request:
+    paths:
+      - 'website/**'
+      - '.github/workflows/website.yml'
+  release:
+    types: [published, edited, deleted, unpublished]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test website behavior and release metadata
+        run: node --test website/test/*.test.mjs
+      - name: Check browser module syntax
+        run: node --check website/src/app.mjs
+      - name: Build deterministic static preview
+        run: node website/scripts/build.mjs --offline
+
+  deploy-release:
+    needs: verify
+    if: >-
+      github.repository == 'occcat/cursor-android' &&
+      (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refresh production Pages release metadata
+        env:
+          CLOUDFLARE_PAGES_DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_HOOK }}
+        run: node website/scripts/deploy-hook.mjs

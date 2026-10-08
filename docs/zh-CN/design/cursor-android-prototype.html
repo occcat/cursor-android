@@ -1,0 +1,1509 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Cursor Android · 胶囊与通知交互原型</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #f0f0f0;
+            background: #0c0d0e;
+            font-synthesis: none;
+            --accent: #81a1c1;
+            --other: #a0a0a0;
+            --muted: #92979d;
+            --line: #2b2e32;
+            --surface: #181a1d;
+            --warn: #f1b467;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-width: 280px; }
+        button, input, select { font: inherit; }
+        button, select { cursor: pointer; }
+        button { color: inherit; }
+        button:focus-visible, select:focus-visible, input:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 4px;
+        }
+        button { -webkit-tap-highlight-color: transparent; }
+        button:disabled { opacity: .45; cursor: default; }
+        [hidden] { display: none !important; }
+        .stage {
+            width: min(100% - 64px, 1080px);
+            margin: 64px auto;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 390px;
+            gap: 100px;
+            align-items: start;
+        }
+        .eyebrow {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: .2em;
+        }
+        h1 { font-size: clamp(32px, 4vw, 49px); line-height: 1.25; margin: 25px 0; }
+        h1 span { color: #92979d; font-weight: 400; }
+        .lead { color: #a8adb3; font-size: 15px; line-height: 1.9; max-width: 430px; }
+        .scenario-label { margin: 37px 0 12px; font-size: 12px; color: var(--muted); }
+        .scenarios { display: flex; flex-wrap: wrap; gap: 8px; }
+        .scenario {
+            min-height: 44px;
+            padding: 0 15px;
+            background: #16181b;
+            border: 1px solid #292c30;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        .scenario[aria-pressed="true"] {
+            color: #cfdfef;
+            border-color: #5a7189;
+            background: #25313c;
+        }
+        .design-note {
+            margin-top: 35px;
+            padding-top: 25px;
+            border-top: 1px solid var(--line);
+            max-width: 425px;
+            color: #9aa0a6;
+            font-size: 12px;
+            line-height: 1.9;
+        }
+        .design-note strong { color: #d0d5da; font-weight: 500; }
+        .specs { display: flex; gap: 28px; margin-top: 30px; }
+        .specs b { display: block; color: #d3d7dc; font-size: 21px; font-weight: 400; }
+        .specs span { color: #7e858d; font-size: 11px; }
+        .phone {
+            position: relative;
+            width: 100%;
+            max-width: 390px;
+            height: 814px;
+            border: 1px solid #43474c;
+            border-radius: 40px;
+            background: #101113;
+            box-shadow: 0 30px 100px #0008, inset 0 0 0 5px #202226;
+            padding: 6px;
+            overflow: hidden;
+        }
+        .screen {
+            position: relative;
+            height: 100%;
+            border-radius: 34px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: #111315;
+        }
+        .statusbar {
+            height: 37px;
+            padding: 12px 23px 0;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            flex-shrink: 0;
+            color: #f0f0f0;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .statusbar .status-right { margin-left: auto; font-size: 11px; letter-spacing: 2px; }
+        .camera {
+            position: absolute;
+            top: 11px;
+            left: calc(50% - 5px);
+            width: 10px;
+            height: 10px;
+            background: #000;
+            border: 1px solid #1b1d1f;
+            border-radius: 50%;
+        }
+        .mono-icon { width: 11px; height: 11px; color: white; }
+        .appbar {
+            min-height: 68px;
+            padding: 6px 17px 5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .app-identity { display: flex; align-items: center; gap: 9px; }
+        .brand-mark { width: 22px; height: 25px; color: #e6e8eb; }
+        .app-identity strong { font-size: 15px; font-weight: 550; }
+        .capsule-hit {
+            min-height: 48px;
+            width: 156px;
+            padding: 4px 0;
+            border: 0;
+            background: transparent;
+            flex-shrink: 0;
+        }
+        .capsule {
+            height: 40px;
+            width: 156px;
+            border-radius: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: #22262b;
+            border: 1px solid #3b444d;
+            box-shadow: 0 3px 14px #0002;
+        }
+        .capsule-pool { display: flex; align-items: center; gap: 5px; }
+        .capsule-pool i {
+            width: 5px;
+            height: 15px;
+            background: var(--accent);
+            border-radius: 4px;
+        }
+        .capsule-pool.other i { background: var(--other); }
+        .capsule-data { display: flex; flex-direction: column; align-items: start; gap: 1px; }
+        .capsule-data small { font-size: 8px; color: #aab6c2; font-weight: 400; }
+        .capsule-pool b { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+        .capsule-divider { width: 1px; height: 14px; background: #42474d; }
+        .capsule.offline { border-style: dashed; opacity: .75; }
+        .capsule.tight { border-color: #796244; }
+        .capsule.auth { color: #c8cdd2; font-size: 12px; }
+        .content { flex: 1; overflow: auto; scrollbar-width: none; padding: 16px 20px 24px; }
+        .content::-webkit-scrollbar { display: none; }
+        .section-kicker { font-size: 10px; color: #90969c; letter-spacing: .08em; }
+        .page-title {
+            font-size: 28px;
+            font-weight: 500;
+            margin: 8px 0 5px;
+            letter-spacing: -.04em;
+        }
+        .page-subtitle { color: #8c949c; font-size: 12px; line-height: 1.6; margin: 0 0 24px; }
+        .title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .demo-tag {
+            padding: 4px 7px;
+            font-size: 9px;
+            letter-spacing: .04em;
+            border: 1px solid #343a40;
+            border-radius: 5px;
+            color: #b0b7bf;
+        }
+        .composer {
+            border: 1px solid #3b444d;
+            border-radius: 16px;
+            background: linear-gradient(125deg, #212830, #1b1d21 75%);
+            padding: 17px;
+        }
+        .composer p { margin: 0 0 28px; font-size: 14px; color: #e6e9ec; }
+        .compose-tools { display: flex; align-items: center; justify-content: space-between; }
+        .repo-chip { color: #a9b6c4; font-size: 11px; }
+        .launch {
+            width: 38px;
+            height: 38px;
+            border: 0;
+            border-radius: 50%;
+            background: #dce4eb;
+            color: #19212a;
+            font-size: 21px;
+        }
+        .list-heading { display: flex; justify-content: space-between; margin: 29px 0 6px; }
+        .list-heading span { font-size: 11px; color: #9aa1a9; }
+        .list-heading b { font-size: 11px; color: #6f7781; font-weight: 400; }
+        .agent-row {
+            padding: 20px 0;
+            border-bottom: 1px solid #24282c;
+            display: grid;
+            grid-template-columns: 26px minmax(0, 1fr);
+            gap: 10px;
+        }
+        .agent-state {
+            width: 22px;
+            height: 22px;
+            border-radius: 7px;
+            display: grid;
+            place-items: center;
+            font-size: 11px;
+            background: #252f37;
+            color: #a9bfd3;
+        }
+        .agent-state.done { background: #242a26; color: #9ab7a2; }
+        .agent-state.wait { background: #332d24; color: #d4b47d; }
+        .agent-row h3 { font-size: 13px; font-weight: 500; margin: 2px 0 8px; }
+        .agent-row p { color: #747e88; font-size: 10px; margin: 0; }
+        .agent-row .activity { font-size: 11px; color: #a7afb8; margin-top: 10px; }
+        .info-banner {
+            border-radius: 10px;
+            padding: 11px 12px;
+            margin-bottom: 17px;
+            background: #283038;
+            color: #b9c9d8;
+            font-size: 11px;
+            line-height: 1.7;
+        }
+        .info-banner.warn { background: #342b20; color: #e3be8b; }
+        .info-banner.auth { background: #302832; color: #d8bacf; }
+        .usage-card {
+            border-radius: 16px;
+            border: 1px solid #30363d;
+            background: #1b1e22;
+            padding: 18px 16px;
+            margin-top: 12px;
+        }
+        .pool-head { display: flex; align-items: center; gap: 7px; }
+        .pool-dot { width: 6px; height: 6px; background: var(--pool-color); border-radius: 50%; }
+        .pool-name { font-size: 12px; font-weight: 500; }
+        .pool-type { margin-left: auto; color: #777f89; font-size: 9px; }
+        .pool-value { display: flex; align-items: baseline; gap: 7px; margin: 15px 0 15px; }
+        .pool-value strong {
+            font-size: 39px;
+            font-weight: 450;
+            letter-spacing: -.06em;
+            font-variant-numeric: tabular-nums;
+        }
+        .pool-value strong span { font-size: 19px; margin-left: 2px; }
+        .pool-value small { font-size: 11px; color: #8c96a1; }
+        .progress {
+            height: 8px;
+            border-radius: 8px;
+            background: #ffffff0d;
+            position: relative;
+            margin: 5px 0 13px;
+        }
+        .progress .fill { height: 100%; background: var(--pool-color); border-radius: 8px; }
+        .progress .pace {
+            position: absolute;
+            top: -4px;
+            width: 2px;
+            height: 16px;
+            background: #f2f2f2;
+            box-shadow: 0 0 0 2px #1b1e22;
+            border-radius: 2px;
+        }
+        .pace-text { display: flex; justify-content: space-between; gap: 6px; font-size: 10px; }
+        .pace-text span { color: #a1acb8; }
+        .pace-text b { font-weight: 400; color: #8f98a2; }
+        .pace-text .warning { color: var(--warn); }
+        .reset-time { font-size: 10px; color: #737e89; margin-top: 13px; }
+        .usage-foot { color: #737e89; font-size: 10px; line-height: 1.8; margin-top: 18px; }
+        .usage-legend { display: flex; align-items: center; gap: 7px; margin-top: 16px; }
+        .usage-legend i { height: 12px; width: 2px; background: #dce0e4; }
+        .usage-legend span { font-size: 10px; color: #8995a1; }
+        .text-action {
+            min-height: 44px;
+            border: 0;
+            background: transparent;
+            padding: 4px 0;
+            color: #aec5db;
+            font-size: 12px;
+        }
+        .nav {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            min-height: 69px;
+            padding: 8px 10px 5px;
+            background: #17191c;
+            border-top: 1px solid #262a2e;
+            flex-shrink: 0;
+            z-index: 2;
+        }
+        .nav button {
+            min-height: 48px;
+            border: 0;
+            background: transparent;
+            color: #818b95;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            font-size: 10px;
+            border-radius: 12px;
+        }
+        .nav svg { width: 19px; height: 19px; }
+        .nav button[aria-current="page"] { color: #c0d2e3; background: #28323d; }
+        .gesture { height: 18px; display: grid; place-items: center; background: #17191c; }
+        .gesture::after {
+            content: "";
+            width: 106px;
+            height: 3px;
+            border-radius: 2px;
+            background: #ccc;
+        }
+        .settings-heading {
+            font-size: 10px;
+            color: #879bad;
+            letter-spacing: .06em;
+            margin: 25px 0 10px;
+        }
+        .settings-group { border: 1px solid #2b3035; border-radius: 13px; overflow: hidden; }
+        .setting-row {
+            min-height: 62px;
+            padding: 12px 13px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: space-between;
+            background: #1b1e22;
+            border-bottom: 1px solid #2a2e33;
+        }
+        .setting-row:last-child { border-bottom: 0; }
+        .setting-text { min-width: 0; }
+        .setting-text b { display: block; font-size: 12px; font-weight: 400; }
+        .setting-text small {
+            display: block;
+            font-size: 9px;
+            line-height: 1.6;
+            color: #7f8993;
+            margin-top: 4px;
+        }
+        .switch { position: relative; width: 40px; height: 44px; flex-shrink: 0; }
+        .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; }
+        .switch span {
+            display: block;
+            position: absolute;
+            inset: 11px 0;
+            border-radius: 22px;
+            background: #424951;
+            pointer-events: none;
+        }
+        .switch span::after {
+            content: "";
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            top: 3px;
+            left: 3px;
+            border-radius: 50%;
+            background: #d4d7da;
+            transition: transform 140ms;
+        }
+        .switch input:checked + span { background: #81a1c1; }
+        .switch input:checked + span::after { transform: translateX(18px); background: #142231; }
+        .switch input:focus-visible + span { outline: 2px solid white; outline-offset: 4px; }
+        select {
+            max-width: 110px;
+            min-height: 44px;
+            border: 0;
+            padding: 0 3px;
+            font-size: 11px;
+            color: #afc4d9;
+            background: #1b1e22;
+        }
+        .setting-button {
+            text-align: left;
+            width: 100%;
+            border-left: 0;
+            border-right: 0;
+            border-top: 0;
+        }
+        .setting-arrow { color: #77899a; font-size: 18px; }
+        .notification-preview {
+            margin-top: 15px;
+            border: 1px solid #454a50;
+            border-radius: 22px;
+            padding: 17px;
+            background: #30343a;
+        }
+        .notification-source {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #ccd1d6;
+            font-size: 10px;
+        }
+        .notification-source svg { width: 14px; height: 14px; color: white; }
+        .notification-source span:last-child { margin-left: auto; color: #a0a7af; }
+        .notification-preview h3 { font-size: 13px; font-weight: 500; margin: 19px 0 8px; }
+        .notification-summary { font-size: 12px; line-height: 1.8; color: #dce1e5; margin: 0; }
+        .notification-caption {
+            font-size: 10px;
+            color: #a4adb5;
+            line-height: 1.7;
+            margin: 10px 0 0;
+        }
+        .notification-actions { display: flex; flex-wrap: wrap; gap: 21px; margin-top: 10px; }
+        .notification-actions button { color: #c4d8eb; font-size: 11px; }
+        .os-demo {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin: 26px 0 5px;
+            padding: 14px;
+            background: #0e1012;
+            border-radius: 10px;
+            border: 1px dashed #343a40;
+            font-size: 11px;
+        }
+        .os-demo .os-spacer { margin-left: auto; color: #cad0d6; font-size: 10px; }
+        .os-demo svg { color: #fff; width: 13px; height: 13px; }
+        .phone-note { font-size: 11px; line-height: 1.9; color: #8793a0; }
+        .floating {
+            position: absolute;
+            top: 117px;
+            right: 13px;
+            z-index: 4;
+            filter: drop-shadow(0 7px 15px #0008);
+        }
+        .floating.bottom { top: auto; bottom: 96px; }
+        .overlay-label {
+            position: absolute;
+            right: 17px;
+            top: 164px;
+            background: #14191edb;
+            color: #9eacb9;
+            font-size: 8px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            z-index: 4;
+        }
+        .overlay-label.bottom { top: auto; bottom: 82px; }
+        .scrim { position: absolute; inset: 37px 0 0; background: #0009; z-index: 6; }
+        .sheet {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            border-radius: 24px 24px 0 0;
+            background: #181b1f;
+            border: 1px solid #3b424a;
+            padding: 8px 20px 26px;
+            max-height: calc(100% - 55px);
+            overflow: auto;
+        }
+        .sheet-handle {
+            width: 34px;
+            height: 4px;
+            border-radius: 4px;
+            background: #59616a;
+            margin: 0 auto 10px;
+        }
+        .sheet-header { display: flex; align-items: center; justify-content: space-between; }
+        .sheet-header h2 { font-size: 18px; font-weight: 500; margin: 10px 0; }
+        .close-button {
+            width: 44px;
+            height: 44px;
+            border: 0;
+            background: transparent;
+            color: #9cabb9;
+            font-size: 23px;
+        }
+        .plan-badge {
+            font-size: 10px;
+            border: 1px solid #525f6c;
+            border-radius: 5px;
+            padding: 3px 5px;
+            margin-left: 7px;
+            color: #becedf;
+        }
+        .sheet .usage-card { padding: 15px 13px; border-radius: 12px; }
+        .sheet .pool-value { margin: 9px 0 12px; }
+        .sheet .pool-value strong { font-size: 31px; }
+        .sheet-actions {
+            display: flex;
+            gap: 22px;
+            border-top: 1px solid #333a42;
+            margin-top: 16px;
+            padding-top: 6px;
+        }
+        .toast {
+            position: absolute;
+            bottom: 108px;
+            left: 18px;
+            right: 18px;
+            z-index: 10;
+            border: 1px solid #536171;
+            background: #283441;
+            border-radius: 12px;
+            padding: 13px;
+            font-size: 11px;
+            line-height: 1.7;
+            box-shadow: 0 8px 35px #0008;
+        }
+        .empty-auth { text-align: center; padding: 32px 15px; }
+        .empty-auth .auth-symbol { color: #879eb4; font-size: 30px; }
+        .empty-auth h3 { font-size: 15px; font-weight: 500; margin: 15px 0 8px; }
+        .empty-auth p { font-size: 11px; color: #8b97a3; line-height: 1.8; }
+        .primary-button {
+            min-height: 44px;
+            border: 0;
+            border-radius: 10px;
+            background: #bed0e2;
+            color: #172431;
+            padding: 0 16px;
+            font-size: 12px;
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip-path: inset(50%);
+            white-space: nowrap;
+        }
+        @media (max-width: 820px) {
+            .stage {
+                width: min(100% - 32px, 620px);
+                grid-template-columns: 1fr;
+                gap: 28px;
+                margin: 30px auto;
+            }
+            .intro h1 { font-size: 31px; margin: 15px 0; }
+            .lead { font-size: 13px; max-width: none; }
+            .scenario-label { margin-top: 20px; }
+            .design-note, .specs { display: none; }
+            .phone { justify-self: center; }
+        }
+        @media (max-width: 420px) {
+            .stage { width: 100%; margin: 0; gap: 18px; }
+            .intro { padding: 24px 18px 0; }
+            .intro h1 { font-size: 26px; }
+            .eyebrow { font-size: 9px; }
+            .scenario { padding: 0 11px; font-size: 11px; }
+            .scenarios { gap: 6px; }
+            .phone { border-radius: 0; border: 0; padding: 0; height: 820px; box-shadow: none; }
+            .screen { border-radius: 0; }
+            .appbar { padding-inline: 14px; }
+            .content { padding-inline: 16px; }
+            .app-identity { gap: 6px; }
+            .app-identity strong { font-size: 14px; }
+            .sheet { padding-inline: 16px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { transition: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+        <symbol id="cube" viewbox="0 0 24 26">
+            <path
+                fill="currentColor"
+                d="m12 1 11 6.4v12.2L12 26 1 19.6V7.4L12 1Zm0 3L4 8.6l8 4.6 8-4.6L12 4Zm-9
+                6.3v8.2l7.5 4.3v-8.2L3 10.3Z"
+            />
+        </symbol>
+        <symbol id="chat" viewbox="0 0 24 24">
+            <path
+                d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6 4V6a2 2 0 0 1 2-2Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linejoin="round"
+            />
+            <path d="M7 9h10M7 13h6" stroke="currentColor" stroke-width="1.6"/>
+        </symbol>
+        <symbol id="chart" viewbox="0 0 24 24">
+            <path
+                d="M4 19V9m8 10V4m8 15v-7"
+                stroke="currentColor"
+                stroke-width="2.8"
+                stroke-linecap="round"
+            />
+        </symbol>
+        <symbol id="settings" viewbox="0 0 24 24">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M9 3v6m7 0v6M8 15v6" stroke="currentColor" stroke-width="3.2"/>
+        </symbol>
+        <symbol id="bell" viewbox="0 0 24 24">
+            <path
+                d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5l-2 3Zm5 3h4"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            />
+        </symbol>
+    </svg>
+    <main class="stage">
+        <aside class="intro">
+            <div class="eyebrow">
+                Cursor for Android · Design study 01
+            </div>
+            <h1>
+                任务在继续，
+                <br>
+                <span>
+                    用量一眼可知。
+                </span>
+            </h1>
+            <p class="lead">
+                双模型胶囊、周期节奏与 Android 通知。保持 Cursor Usage 的霜蓝与中性灰，让额度信息安静地跟随任务。
+            </p>
+            <p class="scenario-label" id="scenario-label">
+                切换演示状态
+            </p>
+            <div class="scenarios" role="group" aria-labelledby="scenario-label">
+                <button class="scenario" data-scenario="normal" aria-pressed="true">
+                    正常
+                </button>
+                <button class="scenario" data-scenario="tight" aria-pressed="false">
+                    额度紧张
+                </button>
+                <button class="scenario" data-scenario="offline" aria-pressed="false">
+                    离线
+                </button>
+                <button class="scenario" data-scenario="auth" aria-pressed="false">
+                    登录过期
+                </button>
+            </div>
+            <div class="design-note">
+                <strong>
+                    可以点击的设计稿
+                </strong>
+                <br>
+                点击顶部胶囊展开用量，底部切换会话、用量、设置与通知。 设置中的显示口径、模型开关、节奏线、浮窗与通知会即时更新预览。
+                <br>
+                <br>
+                <strong>
+                    系统状态栏只显示单色通知图标。
+                </strong>
+                双模型信息放在通知抽屉。跨应用胶囊位于系统栏下方，需要用户手动开启浮窗权限。
+                <br>
+                <br>
+                全部账号、仓库、任务与百分比均为虚构演示数据。
+                本设计稿不请求业务 API、不执行登录操作，修改仅存在于本页内存。
+            </div>
+            <div class="specs">
+                <div>
+                    <b>
+                        156 × 40
+                    </b>
+                    <span>
+                        胶囊视觉尺寸 · dp
+                    </span>
+                </div>
+                <div>
+                    <b>
+                        48
+                    </b>
+                    <span>
+                        最小点击高度 · dp
+                    </span>
+                </div>
+                <div>
+                    <b>
+                        8
+                    </b>
+                    <span>
+                        详情进度条 · dp
+                    </span>
+                </div>
+            </div>
+        </aside>
+        <div class="phone" aria-label="Android 手机交互原型">
+            <div class="screen">
+                <div class="camera" aria-hidden="true">
+                </div>
+                <div class="statusbar" aria-label="模拟系统状态栏，Cursor 仅单色小图标">
+                    <span>
+                        09:41
+                    </span>
+                    <svg class="mono-icon status-notification" aria-hidden="true">
+                        <use href="#cube"/>
+                    </svg>
+                    <span class="status-right" aria-label="信号、Wi-Fi、电量">
+                        ▂▄▆ · ▰
+                    </span>
+                </div>
+                <header class="appbar">
+                    <div class="app-identity">
+                        <svg class="brand-mark" aria-hidden="true">
+                            <use href="#cube"/>
+                        </svg>
+                        <strong>
+                            Cursor
+                        </strong>
+                    </div>
+                    <button class="capsule-hit" data-open-usage aria-label="展开双模型用量">
+                    </button>
+                </header>
+                <div class="content" id="content">
+                    <section data-page="agents" aria-labelledby="agents-title">
+                        <div class="title-row">
+                            <div class="section-kicker">
+                                YOUR WORKSPACE
+                            </div>
+                            <span class="demo-tag">
+                                演示数据
+                            </span>
+                        </div>
+                        <h2 class="page-title" id="agents-title">
+                            让想法继续前进
+                        </h2>
+                        <p class="page-subtitle">
+                            从手机查看 Cloud Agents 的进度。
+                        </p>
+                        <div id="agent-banner">
+                        </div>
+                        <div class="composer">
+                            <p>
+                                今天想实现什么？
+                            </p>
+                            <div class="compose-tools">
+                                <span class="repo-chip">
+                                    ⌘
+                                    &nbsp;
+                                    sample / atlas-mobile
+                                </span>
+                                <button class="launch" id="launch" aria-label="演示新建任务">
+                                    ↑
+                                </button>
+                            </div>
+                        </div>
+                        <div class="list-heading">
+                            <span>
+                                最近的会话
+                            </span>
+                            <b>
+                                3 个任务 · 示例
+                            </b>
+                        </div>
+                        <article class="agent-row">
+                            <span class="agent-state" aria-label="运行中">
+                                ◌
+                            </span>
+                            <div>
+                                <h3>
+                                    打磨搜索结果的空状态
+                                </h3>
+                                <p>
+                                    sample / atlas-mobile · 2 分钟前
+                                </p>
+                                <p class="activity">
+                                    正在调整布局与间距…
+                                </p>
+                            </div>
+                        </article>
+                        <article class="agent-row">
+                            <span class="agent-state wait" aria-label="等待确认">
+                                Ⅱ
+                            </span>
+                            <div>
+                                <h3>
+                                    为离线阅读添加缓存
+                                </h3>
+                                <p>
+                                    sample / atlas-mobile · 28 分钟前
+                                </p>
+                                <p class="activity">
+                                    等待你确认实现方案
+                                </p>
+                            </div>
+                        </article>
+                        <article class="agent-row">
+                            <span class="agent-state done" aria-label="已完成">
+                                ✓
+                            </span>
+                            <div>
+                                <h3>
+                                    修复深色模式的图标对比度
+                                </h3>
+                                <p>
+                                    sample / northstar-web · 昨天
+                                </p>
+                                <p class="activity">
+                                    已完成 · +24 −11
+                                </p>
+                            </div>
+                        </article>
+                    </section>
+                    <section data-page="usage" hidden aria-labelledby="usage-title">
+                        <div class="title-row">
+                            <div class="section-kicker">
+                                CURSOR USAGE
+                            </div>
+                            <span class="demo-tag">
+                                演示数据
+                            </span>
+                        </div>
+                        <h2 class="page-title" id="usage-title">
+                            用量与节奏
+                        </h2>
+                        <p class="page-subtitle">
+                            两类额度池，一个清晰的周期。
+                        </p>
+                        <div class="usage-render" data-surface="page">
+                        </div>
+                        <button class="text-action" data-refresh>
+                            ↻
+                            &nbsp;
+                            刷新用量
+                        </button>
+                    </section>
+                    <section data-page="settings" hidden aria-labelledby="settings-title">
+                        <div class="section-kicker">
+                            PREFERENCES · 本地演示
+                        </div>
+                        <h2 class="page-title" id="settings-title">
+                            按你的方式工作
+                        </h2>
+                        <p class="page-subtitle">
+                            设置即时预览；关闭页面后恢复默认。
+                        </p>
+                        <h3 class="settings-heading">
+                            胶囊与用量
+                        </h3>
+                        <div class="settings-group">
+                            <div class="setting-row">
+                                <div class="setting-text">
+                                    <b>
+                                        Cursor Model
+                                    </b>
+                                    <small>
+                                        霜蓝 · Cursor 模型额度池
+                                    </small>
+                                </div>
+                                <label class="switch">
+                                    <input
+                                        id="show-cursor"
+                                        type="checkbox"
+                                        checked
+                                        aria-label="显示 Cursor Model"
+                                    >
+                                    <span>
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-text">
+                                    <b>
+                                        Other Model
+                                    </b>
+                                    <small>
+                                        中性灰 · 其他模型额度池
+                                    </small>
+                                </div>
+                                <label class="switch">
+                                    <input
+                                        id="show-other"
+                                        type="checkbox"
+                                        checked
+                                        aria-label="显示 Other Model"
+                                    >
+                                    <span>
+                                    </span>
+                                </label>
+                            </div>
+                            <label class="setting-row">
+                                <span class="setting-text">
+                                    <b>
+                                        百分比口径
+                                    </b>
+                                    <small>
+                                        胶囊、详情、通知保持一致
+                                    </small>
+                                </span>
+                                <select id="metric">
+                                    <option value="remaining">
+                                        剩余
+                                    </option>
+                                    <option value="used">
+                                        已用
+                                    </option>
+                                </select>
+                            </label>
+                            <div class="setting-row">
+                                <div class="setting-text">
+                                    <b>
+                                        显示周期节奏线
+                                    </b>
+                                    <small>
+                                        账单周期日结束时的预期值
+                                    </small>
+                                </div>
+                                <label class="switch">
+                                    <input
+                                        id="show-pace"
+                                        type="checkbox"
+                                        checked
+                                        aria-label="显示周期节奏线"
+                                    >
+                                    <span>
+                                    </span>
+                                </label>
+                            </div>
+                            <label class="setting-row">
+                                <span class="setting-text">
+                                    <b>
+                                        跨应用胶囊位置
+                                    </b>
+                                    <small>
+                                        避开系统栏与底部手势区域
+                                    </small>
+                                </span>
+                                <select id="position">
+                                    <option value="top">
+                                        右上
+                                    </option>
+                                    <option value="bottom">
+                                        右下
+                                    </option>
+                                </select>
+                            </label>
+                            <div class="setting-row">
+                                <div class="setting-text">
+                                    <b>
+                                        跨应用显示
+                                    </b>
+                                    <small>
+                                        需手动开启「显示在其他应用上层」
+                                    </small>
+                                </div>
+                                <label class="switch">
+                                    <input id="overlay" type="checkbox" aria-label="模拟开启跨应用胶囊">
+                                    <span>
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-text">
+                                    <b>
+                                        用量通知
+                                    </b>
+                                    <small>
+                                        系统状态栏仅显示单色图标
+                                    </small>
+                                </div>
+                                <label class="switch">
+                                    <input
+                                        id="notifications"
+                                        type="checkbox"
+                                        checked
+                                        aria-label="显示用量通知"
+                                    >
+                                    <span>
+                                    </span>
+                                </label>
+                            </div>
+                            <label class="setting-row">
+                                <span class="setting-text">
+                                    <b>
+                                        前台刷新间隔
+                                    </b>
+                                    <small>
+                                        后台：15 分钟起，由系统调度
+                                    </small>
+                                </span>
+                                <select id="refresh-interval">
+                                    <option value="30">
+                                        30 秒
+                                    </option>
+                                    <option value="60" selected>
+                                        60 秒
+                                    </option>
+                                    <option value="120">
+                                        2 分钟
+                                    </option>
+                                    <option value="300">
+                                        5 分钟
+                                    </option>
+                                </select>
+                            </label>
+                        </div>
+                        <h3 class="settings-heading">
+                            账户设置
+                        </h3>
+                        <div class="settings-group">
+                            <button
+                                class="setting-row setting-button"
+                                data-notice="打开账户连接流程，具体认证方式待验证。此处为交互示意。"
+                            >
+                                <span class="setting-text">
+                                    <b>
+                                        账号与登录
+                                    </b>
+                                    <small>
+                                        demo@example.invalid · 虚构账号
+                                    </small>
+                                </span>
+                                <span class="setting-arrow">
+                                    ↗
+                                </span>
+                            </button>
+                            <button
+                                class="setting-row setting-button"
+                                data-notice="账单和套餐由 Cursor 官方页面管理。此处不执行修改。"
+                            >
+                                <span class="setting-text">
+                                    <b>
+                                        套餐与账单
+                                    </b>
+                                    <small>
+                                        Pro · 示例套餐
+                                    </small>
+                                </span>
+                                <span class="setting-arrow">
+                                    ↗
+                                </span>
+                            </button>
+                        </div>
+                        <h3 class="settings-heading">
+                            CLOUD AGENT 偏好
+                        </h3>
+                        <div class="settings-group">
+                            <label class="setting-row">
+                                <span class="setting-text">
+                                    <b>
+                                        默认模型
+                                    </b>
+                                    <small>
+                                        具体可用模型以服务端返回为准
+                                    </small>
+                                </span>
+                                <select id="agent-model">
+                                    <option>
+                                        Auto
+                                    </option>
+                                    <option>
+                                        最近使用
+                                    </option>
+                                </select>
+                            </label>
+                            <div class="setting-row">
+                                <div class="setting-text">
+                                    <b>
+                                        任务完成提醒
+                                    </b>
+                                    <small>
+                                        仅演示通知偏好，不创建任务
+                                    </small>
+                                </div>
+                                <label class="switch">
+                                    <input
+                                        id="agent-alerts"
+                                        type="checkbox"
+                                        checked
+                                        aria-label="开启任务完成提醒"
+                                    >
+                                    <span>
+                                    </span>
+                                </label>
+                            </div>
+                            <button
+                                class="setting-row setting-button"
+                                data-notice="仓库、环境与密钥设置将在独立设置页管理；此原型不读写任何真实配置。"
+                            >
+                                <span class="setting-text">
+                                    <b>
+                                        仓库与运行环境
+                                    </b>
+                                    <small>
+                                        GitHub、环境与 secrets
+                                    </small>
+                                </span>
+                                <span class="setting-arrow">
+                                    ›
+                                </span>
+                            </button>
+                        </div>
+                        <p class="phone-note">
+                            应用偏好与账号 / Cloud Agent 设置分别管理。本原型只演示信息结构。
+                        </p>
+                    </section>
+                    <section data-page="notifications" hidden aria-labelledby="notification-title">
+                        <div class="section-kicker">
+                            ANDROID SYSTEM SURFACES
+                        </div>
+                        <h2 class="page-title" id="notification-title">
+                            轻轻看一眼
+                        </h2>
+                        <p class="page-subtitle">
+                            模拟通知抽屉 · 具体排版由 Android 版本决定。
+                        </p>
+                        <div class="os-demo" aria-label="系统状态栏示意">
+                            <span>
+                                09:41
+                            </span>
+                            <svg class="status-notification" aria-hidden="true">
+                                <use href="#cube"/>
+                            </svg>
+                            <span class="os-spacer">
+                                ▂▄▆
+                                &nbsp;
+                                ▰
+                            </span>
+                        </div>
+                        <p class="phone-note" id="status-caption">
+                            状态栏：单色 Cursor 通知图标。
+                        </p>
+                        <div id="notification-content">
+                        </div>
+                        <p class="phone-note" style="margin-top:24px">
+                            下拉通知查看双模型值；点击「查看用量」打开应用。跨应用胶囊独立于系统状态栏，可在设置中体验。
+                        </p>
+                    </section>
+                </div>
+                <button class="capsule-hit floating" data-open-usage hidden aria-label="跨应用胶囊：展开用量">
+                </button>
+                <div class="overlay-label" hidden>
+                    浮窗示意 · 用户手动开启
+                </div>
+                <nav class="nav" aria-label="页面导航">
+                    <button data-nav="agents" aria-current="page">
+                        <svg aria-hidden="true">
+                            <use href="#chat"/>
+                        </svg>
+                        会话
+                    </button>
+                    <button data-nav="usage">
+                        <svg aria-hidden="true">
+                            <use href="#chart"/>
+                        </svg>
+                        用量
+                    </button>
+                    <button data-nav="settings">
+                        <svg aria-hidden="true">
+                            <use href="#settings"/>
+                        </svg>
+                        设置
+                    </button>
+                    <button data-nav="notifications">
+                        <svg aria-hidden="true">
+                            <use href="#bell"/>
+                        </svg>
+                        通知预览
+                    </button>
+                </nav>
+                <div class="gesture" aria-hidden="true">
+                </div>
+                <div class="scrim" id="usage-dialog" hidden>
+                    <section
+                        class="sheet"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="sheet-title"
+                        tabindex="-1"
+                    >
+                        <div class="sheet-handle" aria-hidden="true">
+                        </div>
+                        <div class="sheet-header">
+                            <h2 id="sheet-title">
+                                Cursor Usage
+                                <span class="plan-badge">
+                                    Pro
+                                </span>
+                            </h2>
+                            <button class="close-button" id="close-sheet" aria-label="关闭用量面板">
+                                ×
+                            </button>
+                        </div>
+                        <div class="usage-render" data-surface="sheet">
+                        </div>
+                        <div class="sheet-actions">
+                            <button class="text-action" data-refresh>
+                                ↻
+                                &nbsp;
+                                刷新
+                            </button>
+                            <button class="text-action" id="sheet-settings">
+                                用量设置
+                            </button>
+                        </div>
+                    </section>
+                </div>
+                <div class="toast" role="status" aria-live="polite" id="toast" hidden>
+                </div>
+                <div class="sr-only" aria-live="polite" id="state-announcement">
+                </div>
+            </div>
+        </div>
+    </main>
+    <script>
+        "use strict";
+        const state = {
+            scenario: "normal",
+            page: "agents",
+            metric: "remaining",
+            showCursor: true,
+            showOther: true,
+            showPace: true,
+            overlay: false,
+            notifications: true,
+            position: "top",
+        };
+        const models = [
+            { id: "cursor", name: "Cursor Model", short: "Cursor", color: "#81a1c1" },
+            { id: "other", name: "Other Model", short: "Other", color: "#a0a0a0" },
+        ];
+        const scenarios = {
+            normal: { used: [32, 61], label: "正常", note: "", updated: "刚刚更新 · 演示快照" },
+            tight: {
+                used: [91, 96],
+                label: "额度紧张",
+                note: "额度即将用尽，两个模型池都比当前周期的预期消耗更快。",
+                updated: "刚刚更新 · 演示快照",
+            },
+            offline: {
+                used: [32, 61],
+                label: "离线",
+                note: "当前离线 · 以下为 2 小时前的旧数据，连接恢复后再刷新。",
+                updated: "2 小时前更新 · 旧数据",
+            },
+            auth: {
+                used: [null, null],
+                label: "登录过期",
+                note: "登录已过期，重新登录后继续查看任务和用量。",
+                updated: "登录已过期 · 用量不可用",
+            },
+        };
+        const expectedUsed = 63.3;
+        let focusBeforeSheet = null;
+        let toastTimer;
+        const $ = (selector) => document.querySelector(selector);
+        const $$ = (selector) => [...document.querySelectorAll(selector)];
+        const activeModels = () => models.filter((model) =>
+            model.id === "cursor" ? state.showCursor : state.showOther);
+        const valueFor = (model) => {
+            const used = scenarios[state.scenario].used[models.indexOf(model)];
+            if (used === null) return null;
+            return state.metric === "remaining" ? 100 - used : used;
+        };
+        const metricLabel = () => state.metric === "remaining" ? "剩余" : "已用";
+        const readableValue = (model) => {
+            const value = valueFor(model);
+            return value === null ? "不可用" : `${metricLabel()} ${value}%`;
+        };
+        function showToast(message) {
+            clearTimeout(toastTimer);
+            $("#toast").textContent = message;
+            $("#toast").hidden = false;
+            toastTimer = setTimeout(() => { $("#toast").hidden = true; }, 4500);
+        }
+        function banner() {
+            const scenario = scenarios[state.scenario];
+            if (!scenario.note) return "";
+            const modifier = state.scenario === "tight" ? "warn" : state.scenario;
+            return `<div class="info-banner ${modifier}">${scenario.note}</div>`;
+        }
+        function card(model) {
+            const used = scenarios[state.scenario].used[models.indexOf(model)];
+            const value = valueFor(model);
+            const target = state.metric === "remaining" ? 100 - expectedUsed : expectedUsed;
+            const delta = used - expectedUsed;
+            const paceText = delta > 5 ? "消耗偏快" : delta < -5 ? "消耗偏慢" : "符合节奏";
+            const old = state.scenario === "offline" ? " · 旧数据" : "";
+            const marker = state.showPace
+                ? `<i class="pace" style="left:${target}%" aria-hidden="true"></i>` : "";
+            const paceCaption = state.showPace
+                ? `<span class="${delta > 5 ? "warning" : ""}">${paceText}${old}</span>
+                    <b>预期${metricLabel()} ${target.toFixed(1)}%</b>`
+                : `<span>${metricLabel()}额度${old}</span><b>节奏线已隐藏</b>`;
+            return `<article class="usage-card" style="--pool-color:${model.color}">
+                <div class="pool-head"><i class="pool-dot" aria-hidden="true"></i>
+                    <span class="pool-name">${model.name}</span>
+                    <span class="pool-type">月度额度池</span></div>
+                <div class="pool-value"><strong>${value.toFixed(1)}<span>%</span></strong>
+                    <small>${metricLabel()}${old}</small></div>
+                <div class="progress" role="progressbar" aria-label="${model.name} ${metricLabel()}"
+                    aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="100">
+                    <div class="fill" style="width:${value}%"></div>${marker}</div>
+                <div class="pace-text">${paceCaption}</div>
+                <div class="reset-time">10 月 31 日 00:00 重置 · 12 天后</div>
+            </article>`;
+        }
+        function renderUsage() {
+            const auth = state.scenario === "auth";
+            const hasPools = activeModels().length > 0;
+            const content = !hasPools
+                ? `<div class="empty-auth"><h3>用量显示已关闭</h3>
+                    <p>开启任一模型额度池后，胶囊、详情与通知将恢复显示。</p>
+                    <button class="primary-button" data-enable-models>前往用量设置</button></div>`
+                : auth
+                ? `<div class="empty-auth"><div class="auth-symbol">⌁</div>
+                    <h3>重新连接你的账户</h3><p>会话已失效，额度暂不可用。<br>完成登录后，将重新获取当前周期用量。</p>
+                    <button class="primary-button" data-login>重新登录 · 演示</button></div>`
+                : activeModels().map(card).join("");
+            const legend = hasPools && !auth && state.showPace
+                ? `<div class="usage-legend"><i aria-hidden="true"></i>
+                    <span>白线：当前周期日结束时的预期${metricLabel()}值</span></div>` : "";
+            const footer = `<p class="usage-foot">${scenarios[state.scenario].updated}<br>
+                演示时钟 10/19 00:00 · 周期 10/01—10/31<br>所有数值均为虚构示例</p>`;
+            $$(".usage-render").forEach((node) => {
+                node.innerHTML = banner() + content + legend + footer;
+            });
+            $(".plan-badge").hidden = auth;
+        }
+        function renderCapsules() {
+            const auth = state.scenario === "auth";
+            const pools = activeModels();
+            const inner = auth ? "⌁ &nbsp; 登录已过期" : pools.map((model) =>
+                `<span class="capsule-pool ${model.id}"><i aria-hidden="true"></i>
+                    <span class="capsule-data"><small>${model.short} · ${metricLabel()}</small>
+                    <b>${valueFor(model)}%</b></span></span>`)
+                .join('<i class="capsule-divider"></i>');
+            const description = auth ? "登录已过期，用量不可用" : pools.map((model) =>
+                `${model.name} ${readableValue(model)}`).join("，");
+            const old = state.scenario === "offline" ? "，2 小时前的旧数据" : "";
+            $$(".capsule-hit").forEach((node) => {
+                node.hidden = pools.length === 0;
+                node.innerHTML = `<span class="capsule ${state.scenario}" aria-hidden="true">
+                    ${inner}</span>`;
+                node.setAttribute("aria-label", `${description}${old}。点击展开用量面板`);
+                node.title = `${description}${old}`;
+            });
+        }
+        function renderNotification() {
+            const node = $("#notification-content");
+            if (!state.notifications) {
+                node.innerHTML = `<div class="info-banner">用量通知已关闭。可前往「设置」重新开启。</div>`;
+                return;
+            }
+            if (activeModels().length === 0) {
+                node.innerHTML = `<div class="info-banner">两个模型额度池均已隐藏，
+                    当前不展示用量通知。可在「设置」中开启任一模型。</div>`;
+                return;
+            }
+            const auth = state.scenario === "auth";
+            const title = auth ? "登录已过期" : `本周期额度 · ${metricLabel()}`;
+            const summary = auth ? "重新登录后恢复用量更新。" : activeModels().map((model) =>
+                `${model.name} ${valueFor(model)}%`).join("<br>");
+            const caption = auth ? "用量不可用，历史百分比已隐藏。"
+                : state.scenario === "offline" ? "离线 · 2 小时前的旧数据"
+                : state.scenario === "tight" ? "额度紧张 · 消耗快于周期预期" : "10 月 31 日重置 · 刚刚更新";
+            node.innerHTML = `<article class="notification-preview">
+                <div class="notification-source"><svg aria-hidden="true"><use href="#cube"/></svg>
+                    <span>Cursor · 用量</span><span>演示</span></div>
+                <h3>${title}</h3><p class="notification-summary">${summary}</p>
+                <p class="notification-caption">${caption}</p>
+                <div class="notification-actions">
+                    <button class="text-action" data-notification-open>
+                    ${auth ? "重新登录" : "查看用量"}</button>
+                    <button class="text-action" data-refresh>刷新</button></div>
+                </article>`;
+        }
+        function render() {
+            renderCapsules();
+            renderUsage();
+            renderNotification();
+            $("#agent-banner").innerHTML = banner();
+            const hasPools = activeModels().length > 0;
+            $(".floating").hidden = !state.overlay || !hasPools;
+            $(".overlay-label").hidden = !state.overlay || !hasPools;
+            $(".floating").classList.toggle("bottom", state.position === "bottom");
+            $(".overlay-label").classList.toggle("bottom", state.position === "bottom");
+            $$(".status-notification").forEach((node) => {
+                node.toggleAttribute("hidden", !state.notifications || !hasPools);
+            });
+            $("#status-caption").textContent = state.notifications && hasPools
+                ? "状态栏：单色 Cursor 通知图标。" : "状态栏：当前不显示用量通知图标。";
+            $$(".scenario").forEach((node) => {
+                node.setAttribute("aria-pressed", String(node.dataset.scenario === state.scenario));
+            });
+        }
+        function navigate(page) {
+            state.page = page;
+            $$("[data-page]").forEach((node) => { node.hidden = node.dataset.page !== page; });
+            $$("[data-nav]").forEach((node) => {
+                if (node.dataset.nav === page) node.setAttribute("aria-current", "page");
+                else node.removeAttribute("aria-current");
+            });
+            $("#content").scrollTop = 0;
+        }
+        function openSheet(trigger) {
+            focusBeforeSheet = trigger;
+            $("#usage-dialog").hidden = false;
+            $(".sheet").focus();
+        }
+        function closeSheet() {
+            $("#usage-dialog").hidden = true;
+            focusBeforeSheet?.focus();
+        }
+        $$("[data-nav]").forEach((button) => {
+            button.addEventListener("click", () => navigate(button.dataset.nav));
+        });
+        $$(".scenario").forEach((button) => {
+            button.addEventListener("click", () => {
+                state.scenario = button.dataset.scenario;
+                render();
+                $("#state-announcement").textContent = `已切换为${scenarios[state.scenario].label}演示`;
+            });
+        });
+        $$("[data-open-usage]").forEach((button) => {
+            button.addEventListener("click", () => openSheet(button));
+        });
+        $("#close-sheet").addEventListener("click", closeSheet);
+        $("#usage-dialog").addEventListener("click", (event) => {
+            if (event.target === event.currentTarget) closeSheet();
+        });
+        $("#sheet-settings").addEventListener("click", () => {
+            closeSheet();
+            navigate("settings");
+            $("#show-cursor").focus();
+        });
+        document.addEventListener("keydown", (event) => {
+            if ($("#usage-dialog").hidden) return;
+            if (event.key === "Escape") closeSheet();
+            if (event.key !== "Tab") return;
+            const focusable = [...$(".sheet").querySelectorAll("button:not(:disabled)")];
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && (document.activeElement === first
+                || document.activeElement === $(".sheet"))) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
+        document.addEventListener("click", (event) => {
+            const button = event.target.closest("button");
+            if (!button) return;
+            if (button.hasAttribute("data-refresh")) {
+                const messages = {
+                    normal: "已刷新演示快照。本设计稿不请求业务 API。",
+                    tight: "演示额度仍偏低。刷新不会改变已发生的消耗。",
+                    offline: "仍处于离线演示，保留 2 小时前的旧数据。",
+                    auth: "登录已过期，请先重新登录。",
+                };
+                showToast(messages[state.scenario]);
+            }
+            if (button.hasAttribute("data-login")) {
+                showToast("打开账户连接流程，具体认证方式待验证。此处不读取凭据或执行登录。");
+            }
+            if (button.hasAttribute("data-enable-models")) {
+                if (!$("#usage-dialog").hidden) closeSheet();
+                navigate("settings");
+                $("#show-cursor").focus();
+            }
+            if (button.hasAttribute("data-notification-open")) {
+                if (state.scenario === "auth") {
+                    showToast("打开账户连接流程，具体认证方式待验证。此处仅为交互示意。");
+                } else navigate("usage");
+            }
+            if (button.dataset.notice) showToast(button.dataset.notice);
+        });
+        $("#launch").addEventListener("click", () => {
+            showToast("新任务入口示意。API 方案中的创建流程将在 Android 实现阶段接入。");
+        });
+        const preferenceInputs = {
+            "show-cursor": "showCursor",
+            "show-other": "showOther",
+            "show-pace": "showPace",
+            overlay: "overlay",
+            notifications: "notifications",
+            metric: "metric",
+            position: "position",
+        };
+        Object.entries(preferenceInputs).forEach(([id, key]) => {
+            $(`#${id}`).addEventListener("change", (event) => {
+                const input = event.currentTarget;
+                state[key] = input.type === "checkbox" ? input.checked : input.value;
+                if (key === "overlay" && state.overlay) {
+                    showToast("已开启浮窗演示。真实应用需要你在系统设置中手动授予浮窗权限。");
+                }
+                render();
+            });
+        });
+        $("#refresh-interval").addEventListener("change", () => {
+            showToast("前台刷新间隔已应用于演示设置；后台仍为 15 分钟起，由系统调度。");
+        });
+        render();
+    </script>
+</body>
+</html>

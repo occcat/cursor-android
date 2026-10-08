@@ -11,3 +11,8 @@
 *.ap_
 *.aab
 output.json
+/.worktree/
+**/build/
+*.jks
+*.keystore
+.kotlin/
