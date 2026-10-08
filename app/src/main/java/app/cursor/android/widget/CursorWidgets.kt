@@ -1,5 +1,6 @@
 package app.cursor.android.widget
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -96,7 +97,7 @@ class UsageWidget : CursorWidget() {
         val detailed = size.height >= 180.dp
         val wide = size.width >= 320.dp
         val context = LocalContext.current
-        val largerText = context.resources.configuration.fontScale > 1.15f
+        val largerText = usesLargeText()
         Column(
             GlanceModifier.fillMaxSize()
                 .background(surface)
@@ -175,7 +176,7 @@ class AgentsWidget : CursorWidget() {
     @Composable
     override fun Content(state: WidgetState) {
         val context = LocalContext.current
-        val largerText = context.resources.configuration.fontScale > 1.15f
+        val largerText = usesLargeText()
         val tall = LocalSize.current.height >= 300.dp
         val wide = LocalSize.current.width >= 320.dp
         val rows = state.agentRows().take(if (tall && !largerText) 3 else if (wide) 2 else 1)
@@ -275,7 +276,7 @@ private fun AgentRow(agent: WidgetAgent) {
     val context = LocalContext.current
     Column(
         GlanceModifier.fillMaxWidth()
-            .height(if (context.resources.configuration.fontScale > 1.15f) 64.dp else 52.dp)
+            .height(if (usesLargeText()) 64.dp else 52.dp)
             .background(tile)
             .cornerRadius(12.dp)
             .padding(horizontal = 10.dp, vertical = 5.dp)
@@ -374,3 +375,9 @@ class AgentsWidgetReceiver : GlanceAppWidgetReceiver() {
 class ActionsWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget = ActionsWidget()
 }
+
+/** Glance supplies its own context; Compose UI's LocalConfiguration is not provided here. */
+@SuppressLint("LocalContextConfigurationRead")
+@Composable
+private fun usesLargeText(): Boolean =
+    LocalContext.current.resources.configuration.fontScale > 1.15f
