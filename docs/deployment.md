@@ -31,7 +31,9 @@ node website/scripts/build.mjs
 python3 -m http.server 8788 --bind 127.0.0.1 --directory website/dist
 ```
 
-Open `http://127.0.0.1:8788`. Generated `website/dist` is not committed.
+Open `http://127.0.0.1:8788`. Alternatively, `node website/scripts/serve.mjs` serves
+the built site on port 4173. Add `--offline` to the build command for a deterministic
+unpublished-release preview. Generated `website/dist` is not committed.
 
 ## Refresh on release
 
@@ -40,8 +42,13 @@ as the GitHub Actions secret **`CLOUDFLARE_PAGES_DEPLOY_HOOK`** in this reposito
 Treat the entire URL as a credential. Never put it in source, README, screenshots,
 build output, or a client-side environment variable.
 
-The release workflow triggers a new Pages build. The website build obtains current
-release metadata and exposes only real download assets; its empty-release state must
+The Website workflow handles release published/edited/deleted/unpublished events and
+manual dispatch, after its verification job succeeds. GitHub does not start another
+workflow from a release created with GITHUB_TOKEN, so the Android release workflow
+must also call `node website/scripts/deploy-hook.mjs` directly after uploading the APK.
+The website build reads GitHub’s latest stable release into `latest.json` and exposes
+only a matching APK asset from this repository. Drafts, prereleases, missing APKs,
+and network failures show a release/source fallback instead of an invented download; its empty-release state must
 remain honest. The agreed APK naming convention is `cursor-android-<version>.apk`.
 Publishing a release and making a new Pages deployment are distinct steps; verify both.
 The implemented workflow is authoritative for supported event types and retry behavior.
@@ -49,6 +56,9 @@ The implemented workflow is authoritative for supported event types and retry be
 For a manual rebuild, use the Pages dashboard or the configured workflow dispatch.
 If a release is removed or download assets change, rebuild to refresh metadata.
 A deploy hook triggers a build of main, so merge the relevant site code before release.
+The helper validates the official Cloudflare origin/path, refuses redirects, requires
+a successful JSON confirmation, and does not print the hook or response body. Its
+success confirms that a deployment was requested, not that the build is live.
 
 ## Release discipline
 

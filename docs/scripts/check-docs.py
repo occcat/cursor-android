@@ -11,7 +11,9 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[2]
 errors = []
 checked = 0
-for source in [ROOT / 'README.md', *sorted((ROOT / 'docs').rglob('*.md'))]:
+sources = [*sorted(ROOT.glob('README*.md')), ROOT / 'CONTRIBUTING.md',
+           *sorted((ROOT / 'docs').rglob('*.md'))]
+for source in sources:
     if not source.exists():
         continue
     body = source.read_text()
