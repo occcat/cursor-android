@@ -1,0 +1,80 @@
+name: Publish Android release
+on:
+  push:
+    tags: ['v[0-9]*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag, for example v0.1.1'
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: android-release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Validate release version and signing inputs
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import base64, os, pathlib, re
+          source = pathlib.Path('app/build.gradle.kts').read_text()
+          version = re.search(r'versionName = "([0-9]+\.[0-9]+\.[0-9]+)"', source).group(1)
+          if os.environ['RELEASE_TAG'] != 'v' + version:
+              raise SystemExit('Release tag must match the separately committed Android version bump')
+          required = ['ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD',
+                      'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD']
+          if any(not os.environ.get(name) for name in required):
+              raise SystemExit('All four Android release signing secrets are required')
+          target = pathlib.Path(os.environ['RUNNER_TEMP']) / 'cursor-release.p12'
+          target.write_bytes(base64.b64decode(os.environ['ANDROID_KEYSTORE_BASE64'], validate=True))
+          target.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f'ANDROID_KEYSTORE_PATH={target}\nRELEASE_VERSION={version}\n')
+          PY
+      - name: Verify and assemble signed release
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
+      - name: Publish signed APK and checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "cursor-android-${RELEASE_VERSION}.apk"
+          sha256sum "cursor-android-${RELEASE_VERSION}.apk" > "cursor-android-${RELEASE_VERSION}.apk.sha256"
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "cursor-android-${RELEASE_VERSION}.apk" "cursor-android-${RELEASE_VERSION}.apk.sha256" --clobber
+          else
+            gh release create "$RELEASE_TAG" "cursor-android-${RELEASE_VERSION}.apk" "cursor-android-${RELEASE_VERSION}.apk.sha256" --verify-tag --title "Cursor Android ${RELEASE_VERSION}" --generate-notes
+          fi
+      - name: Update Cloudflare Pages after assets are published
+        env:
+          CLOUDFLARE_PAGES_DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_HOOK }}
+        run: node website/scripts/deploy-hook.mjs
+      - name: Remove runner signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/cursor-release.p12"
