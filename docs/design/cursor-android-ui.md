@@ -1,229 +1,147 @@
-# Android 胶囊与状态栏设计
+# Capsule and Android status bar
 
-设计日期：2026-10-08。只有 **Cursor Model** 和 **Other Model** 两个用量池。
-胶囊、详情、浮窗和通知共用一份快照；不接入 Grok Bot，不添加第三池。
+Two pools, one snapshot: **Cursor Model** and **Other Model**. English is the default;
+Chinese can be selected. This document is a design contract; consult the
+[project status](../../README.md) for the implemented subset.
+The [interactive prototype](cursor-android-prototype.html) uses fictional data only.
 
-[交互原型](cursor-android-prototype.html)使用虚构数据，可切换正常、额度紧张、离线、
-登录过期场景。它是可审阅的设计，并非已实现的 Android App。
-整体架构见[实现方案](../android-implementation-plan.md)。
+## Visual language
 
-## 信息层级
+Quiet neutral surfaces, restrained blue, generous spacing, and readable tabular
+numbers follow the Cursor Usage reference in `../grok-usage-floating`.
+The Android implementation uses dp/sp, rather than copying browser CSS pixels.
 
-手机主导航建议为会话、自动化、Codebase；用量通过顶部胶囊进入，设置位于用户菜单。
-原型中的“会话／用量／设置／通知”是设计检查入口，不是最终四个产品底部导航项。
+| Token | Light | Dark |
+| --- | --- | --- |
+| Surface | `#fcfcfc` | `#181818` |
+| Text | `#141414` | `#f0f0f0` |
+| Secondary | `#717171` | `#9a9a9a` |
+| Divider | `#e9e9e9` | `#292929` |
+| Cursor pool | `#81a1c1` | `#81a1c1` |
+| Other pool | Foreground at 60% blend | Foreground at 60% blend |
+| Warning | `#a46700` | `#f1b467` |
+| Error | `#be1744` | `#e34671` |
 
-- 会话：先显示缓存列表，提供搜索、置顶、归档、自定义列表和新建。
-- 新建：仓库和环境在提示词上方；上下文、模型参数、多模型和发送在输入区。
-- 会话详情：运行状态、对话、追问；Changes、Environment、Desktop、Terminal、Files
-  放在工具面板。小屏全屏打开面板，大屏可并排；保留 Fork、Side Chat 和产物入口。
-- 用量：点击胶囊打开 BottomSheet；两行额度下方显示周期、数据时间和刷新动作。
-- 账号、账单、源码托管绑定：保留已登录网页入口，遵守仓库 README 的产品边界。
+Pool identity colors stay fixed. Low quota, stale data, and errors use words/icons,
+not two indistinguishable red bars. Small body text must retain sufficient contrast.
+Support large type, TalkBack, dark mode, rotation, split-screen, and ≥48 dp touch targets.
 
-配额分类来自服务端两个额度池，不能按当前聊天所选模型名分类。
-“不接入 Grok Bot”不意味着删掉 Cursor 可用模型目录中名称含 Grok 的模型。
+## Capsule, details, and notification
 
-## 与参考项目的对应
+![Capsule and notification design](../assets/cursor-android-ui.svg)
 
-参考目录是 `../grok-usage-floating`，只迁移 Cursor 用量部分。
+*Design illustration. Values are fictional; this is not a screenshot of a live account.*
 
-| 来源 | 保留的设计 |
-|---|---|
-| `sites/cursor/site.css:30` | Cursor 霜蓝；Other 中性灰 |
-| `sites/cursor/site.css:42` | 展开条高 8 px、圆端 |
-| `packages/core/src/content.css:600` | 双行 mini bars，条宽 60、高 6 |
-| `packages/core/src/mini.ts:130` | 双环模式：外 Cursor，内 Other |
-| `packages/core/src/hud.ts:350` | 拖动、吸边、展开后保持位置 |
-| `packages/core/src/pace.ts:105` | 计费周期日末目标、节奏偏差 |
-| `packages/core/src/reset-watch.ts:77` | 到期后更新，避免旧周期重复请求 |
+The default compact capsule reads **Cursor 68% · Other 39%**, with a visible or spoken
+**remaining** label. Visual size is approximately 156 × 40 dp inside a ≥48 dp target.
+At large font sizes, allow growth or two lines. An optional mini-bar variant is
+176 × 48 dp, with 60 × 6 dp bars. A dual-ring variant is future design, not a combined
+quota score. Tap opens details; drag must not accidentally activate a tap.
 
-Android 使用 dp/sp，不机械复制网页 CSS 尺寸。原三池截图不作为 Android 设计稿。
-参考项目默认显示已用；本方案默认显示剩余，并提供全局口径切换。
+A details sheet uses 16 dp padding and a tablet maximum around 400 dp. Each fixed slot
+shows full pool name, primary metric, secondary used value, an 8 dp rounded progress
+bar, pace marker, and textual pace. The footer shows cycle/reset time in the local
+timezone, last successful update, freshness, and refresh action. Unknown pools retain
+their slot with `—`; both disabled hides the capsule entirely.
 
-## 视觉规格
+A normal Android **status bar has only a monochrome small icon**. The notification
+**drawer** shows the two values; arbitrary colored quota bars cannot be placed inside
+the system status bar. Standard notification layout is the reliable baseline:
 
-| 项目 | Light | Dark |
-|---|---|---|
-| 基础面 | `#fcfcfc` | `#181818` |
-| 主文本 | `#141414` | `#f0f0f0` |
-| 次文本 | `#717171` | `#9a9a9a` |
-| 分隔线 | `#e9e9e9` | `#292929` |
-| Cursor | `#81a1c1` | `#81a1c1` |
-| Other | 主文本与底色混合 60% | 主文本与底色混合 60% |
-| 警示文本 | `#a46700` | `#f1b467` |
-| 错误文本 | `#be1744` | `#e34671` |
+```text
+Cursor Usage · Remaining
+Cursor 68% · Other 39%
+Resets Oct 31 · Updated 14:32
+[Refresh]  [View usage]
+```
 
-两池身份颜色保持固定。用得快、离线、额度耗尽用图标和文字说明，
-不要把两根进度条同时变红，导致用户无法区分模型池。
-小字不直接用霜蓝作正文；保证文本与背景对比度。百分比使用等宽数字。
+Lock-screen content hides private values and repository names by default. Usage is a
+quiet channel; run completion/failure can use a separate channel. The system controls
+small-icon visibility and notification layout. API 33+ requires notification permission.
+An overlay is a separate permission-gated surface below the status bar and IME;
+it is not a way to replace the system status bar.
 
-### 紧凑胶囊
+## Data contract
 
-默认横向双值：`Cursor 68% · Other 39%`，语义为剩余。
-视觉约 156 × 40 dp，整体触摸区域至少 48 dp 高；标签有对应色点。
-顶部应用栏允许把“剩余”作为可见辅助标签，TalkBack 必须读完整口径。
-大字体时自动加高或换成双行，不压缩到难读字号。
+GET `https://cursor.com/api/usage-summary` uses the **web session**, not the public
+API key. The audit observed a 200 with these fields. The reference client's mapping:
 
-可选双行 mini bars：176 × 48 dp，条约 60 × 6 dp，标签为 Cursor / Other。
-可选双环：外环 Cursor、内环 Other；中心数值不能被误认为两池总额度。
-第一版只需默认胶囊和双行详情；双环作为后续样式，避免设置过多。
+| UI | Source |
+| --- | --- |
+| Cursor Model used | `individualUsage.plan.autoPercentUsed` |
+| Other Model used | `individualUsage.plan.apiPercentUsed` |
+| Cycle start/end | `billingCycleStart`, `billingCycleEnd` |
+| Unlimited | `isUnlimited === true` |
+| Membership label | `membershipType` |
 
-点击展开用量；长按显示位置、暂停刷新、隐藏；拖动不触发展开。
-跨应用胶囊默认右侧中下部，距可用屏幕边缘 16 dp；横竖屏保存归一化坐标。
-拖动门槛使用 Android touch slop，避让挖孔、导航手势和键盘。
+```text
+displayUsed = clamp(rawUsed, 0, 100)
+remaining = 100 - displayUsed
+```
 
-### 展开的用量面板
+Accept finite numbers and valid numeric strings. Reject empty/null/boolean/non-finite
+values. Preserve raw values for overage explanation while clamping geometry.
+Do not divide plan.used by plan.limit, convert dollars/tokens, classify by selected
+model name, or derive one pool from totalPercentUsed.
 
-BottomSheet 宽度随屏幕适配，内容边距 16 dp，平板可限制到 400 dp。
-标题 Cursor Usage；已知时显示套餐；右侧刷新和关闭。
+With used values 32 and 61, every surface defaults to remaining 68 and 39. Switching
+to used changes **numbers, bars, labels, and markers together**. Missing membership
+hides the badge. Unlimited displays `∞` without pace/reset countdown. No individual
+pools in a team response means unavailable, not invented team percentages.
 
-每池固定位置显示：
+## Pace and reset behavior
 
-1. 完整标签 Cursor Model / Other Model。
-2. 主值“剩余 68%”，次值“已用 32.0%”。
-3. 8 dp 圆角进度条和目标刻度。
-4. “用得较快／节奏正常／用得较慢”，附文本而不只变色。
-
-底部显示共同计费周期、确切重置时间、本地时区、剩余天数、上次成功更新、暂停状态。
-不可用时保留池位，显示 `—`；不能把缺失当 0%。
-“额度用尽”仅表示该池已耗尽，不宣称所有请求必然停止；网页 Spending 明确存在
-转用 Other 额度或按量计费的情况，实际执行由账户策略决定。
-
-## 唯一数据口径
-
-数据来自 `GET https://cursor.com/api/usage-summary` 的网页登录会话。
-该 GET 已在 ego 中观察到 200；完整接口证据见[接口分析](../cursor-api-inventory.md)。
-
-| UI 字段 | JSON 来源 |
-|---|---|
-| Cursor 已用 | `individualUsage.plan.autoPercentUsed` |
-| Other 已用 | `individualUsage.plan.apiPercentUsed` |
-| 周期起点 | `billingCycleStart` |
-| 周期终点 | `billingCycleEnd` |
-| 不限量 | `isUnlimited === true` |
-| 套餐 | `membershipType` |
-
-计算：`displayUsed = clamp(rawUsed, 0, 100)`；`remaining = 100 - displayUsed`。
-保留 raw 值，以便超过 100 时解释超额；进度绘制仍限制到 0–100。
-只有有限数字和合法纯数字字符串可接受；空值、布尔、非法数字为 unknown。
-不使用 `plan.used / plan.limit` 推算两个池，不把美元或 token 数当百分比。
-
-示例：Cursor 已用 32、Other 已用 61，则所有表面默认显示剩余 68、39。
-切换为已用后，胶囊、通知、详情主值和条长一起切成 32、61。
-不能只改文字，留下方向相反的进度条。
-
-套餐缺失时隐藏 badge；不为获取套餐发起 Bot 请求。
-`isUnlimited` 为 true 时显示 `∞`，不用百分比、倒计时或 pace。
-团队账户缺少 individualUsage 时保留“本账户未提供个人双池额度”，不拼造团队额度。
-
-## 节奏算法
-
-算法按 UTC 时间戳计算，日期展示用本地时区。设 `day = 86400000`：
+Use UTC timestamps for arithmetic and local timezone for display. `day = 86400000`:
 
 ```text
 span = cycleEnd - cycleStart
-elapsed = clamp((now - cycleStart) / span, 0, 1)
 targetUsed = min(1, (floor((now - cycleStart) / day) + 1) * day / span) * 100
 delta = usedPercent - targetUsed
 ```
 
-`delta > 5` 为用得较快，`delta < -5` 为用得较慢，否则节奏正常。
-刻度代表当前账单周期日结束的目标，不是本地午夜，也不是硬性用量上限。
-剩余口径时刻度位置为 `100 - targetUsed`；已用口径时为 `targetUsed`。
+The marker is the target at the **end of the current billing day**, not local midnight
+and not a hard limit. Above +5 percentage points is faster, below −5 is slower,
+otherwise on pace. Remaining mode uses `100 - targetUsed` for its marker.
+Use a valid 1–32 day server cycle; if deriving the start from the end, subtract a
+calendar month with month-end clamping and label the cycle estimated. Missing end,
+future start, or invalid cycle suppresses misleading pace. A seven-segment design
+means seven equal parts of the whole cycle, not seven days.
 
-优先用服务端起止；参考实现接受 1–32 天周期，否则由结束时间倒推一个日历月，
-月底日期作截断。Android 若保留这个 fallback，要标“估算周期”；没有结束时间就不画刻度。
-时间早于起点或周期异常时不生成误导性的节奏判断。
+When the cycle ends without a new response, preserve old values and show **Waiting
+for sync**. Never locally reset to zero. At most one refresh is scheduled for the
+same expired end; a new end rearms it. Background scheduling is inexact.
 
-到期但未拿到新周期数据时标“待同步”，保留旧值与时间，不能自动归零。
-按参考实现可在周期到期后 5 秒进行一次刷新；后台触发仍受系统调度约束。
-同一过期 end 只触发一次，重新获得新 end 才重置计划。
+## State matrix
 
-进阶可提供“周期七格”，其含义为整个月周期七等分，不能标成“最近七天”。
-参考 graded 色阶衡量额度可能用不完，不等于超支风险；第一版保留文字节奏即可。
+| State | Capsule | Details / notification |
+| --- | --- | --- |
+| Loading | `···` | Skeleton, not 0% |
+| Fresh | Two values | Cycle and successful update time |
+| Low remaining | Value and warning | Name the pool and explain threshold/pace |
+| One pool absent | `—` in that slot | Other pool stays readable |
+| No individual usage | Two unknown values | Explain missing individual pool data |
+| Unlimited | `∞` | No pace or reset countdown |
+| Offline / failed refresh | Cached values, stale indicator | Exact last successful update and retry |
+| Expired cycle | Old values, pending sync | No fabricated new cycle |
+| Paused | Pause indicator | Cached data remains; manual refresh allowed |
+| Expired authentication | Reconnect | Hide private values and stop retry storms |
+| Both pools hidden | Hidden | Explicit preference state, no empty shell |
 
-## 状态矩阵
+Authentication failure outranks stale data. 403 must distinguish policy/permission
+from an actual expired session. “Pool exhausted” does not mean every request stops;
+account on-demand or other-pool policies can still apply. Suggested 20%/10% alerts
+are product preferences, not official Cursor rules; deduplicate per pool and cycle.
 
-| 状态 | 胶囊 | 面板与通知 |
-|---|---|---|
-| 首次加载 | `···` | 骨架；不显示 0% |
-| 正常 | 两池剩余值 | 周期与更新时刻 |
-| 额度紧张 | 值及警示点 | 哪个池、剩余值、节奏原因 |
-| 单池缺失 | 对应 `—` | 另一池继续显示 |
-| 无个人配额 | 两池 `—` | “暂无个人额度数据” |
-| 不限量 | `∞` | 不画 pace 和重置倒计时 |
-| 离线或请求失败 | 旧值及离线标志 | “上次成功更新 …”；有手动重试 |
-| 周期过期 | 旧值及待同步标志 | 不伪造新周期 |
-| 暂停 | 暂停标志 | 停止计时刷新，仍可手动刷新 |
-| 登录过期 | “重新登录” | 隐藏私密数值、停止重试风暴 |
+## Local versus account settings
 
-错误顺序：登录失效、缺数据、过期、离线、正常。
-401 跳重新登录；403 先识别会话失效、权限不足或组织限制，不能统一退出账号。
-提醒等级独立于参考扩展 worstPool 排序：耗尽高于低余额，低余额高于节奏偏差。
-建议阈值剩余 20% / 10%，默认只在跨阈值时提醒；每个池每周期去重。
-这是产品设置值，不是 Cursor 官方限额规则。
+Local DataStore settings: English/Chinese, theme, pool visibility, used/remaining,
+pace display, foreground interval, pause, notifications, and optional overlay placement.
+Server settings: default model, branch prefix, automatic PR, CI follow-up, egress,
+remote control, private workers, and quick actions. These must use the web patch
+contract or be explicitly opened on the website; a local toggle cannot pretend to
+update the Cursor account. Team locks and unavailable permissions remain visible.
 
-## 系统状态栏与通知
-
-普通 Android 应用的系统状态栏只显示单色通知小图标。
-不把两条彩色额度、任意文本或自定义胶囊画进系统状态栏。
-API 33+ 普通通知需要用户授予 `POST_NOTIFICATIONS`。
-
-通知抽屉折叠示例：
-
-```text
-Cursor Usage · 剩余额度
-Cursor 68% · Other 39%
-8 天后重置 · 更新于 14:32
-```
-
-展开显示完整池名和两行值，可选两条进度；操作为“刷新”“查看用量”“暂停”。
-以标准通知模板为基础，可用 BigTextStyle 降级；自定义 RemoteViews 的空间由系统决定，
-必须在不同 API 和 ROM 检查截断，不能强制通知高度。锁屏默认隐藏具体用量和仓库名。
-
-常规用量通知低重要性、不响铃；运行完成、需输入和失败单独 channel，避免额度刷新刷屏。
-关闭普通通知权限不影响应用内胶囊；系统也可能不显示通知小图标，UI 不作保证。
-
-跨应用浮窗采用 `TYPE_APPLICATION_OVERLAY`，需 `SYSTEM_ALERT_WINDOW`，
-位于状态栏与输入法之下。用户从可见 Activity 主动开启，提供明确的停止入口。
-第一版可以暂不开放长时悬浮，先交付应用内胶囊及常规通知。
-
-不能用无限 `dataSync` 前台服务保活：target 35+ 在后台每 24 小时累计仅 6 小时。
-如做长时悬浮，另行验证适用的 FGS 类型、`specialUse` 声明与分发审核；不能虚报用途。
-系统停止、权限撤销或进程被杀后，降级缓存及 WorkManager，不反复强行拉起。
-
-Live Update chip 只作为用户正在关注的 Agent 运行状态的可选增强，
-不可承诺常驻额度看板符合提升条件；系统控制展示，始终有普通通知回退。
-
-平台依据：
-
-- [悬浮层级](https://developer.android.com/reference/android/view/WindowManager.LayoutParams)
-- [通知权限](https://developer.android.com/develop/ui/compose/notifications/notification-permission)
-- [Live Updates](https://developer.android.com/develop/ui/views/notifications/live-update)
-- [Android 15 限制](https://developer.android.com/about/versions/15/behavior-changes-15)
-- [FGS 类型](https://developer.android.com/develop/background-work/services/fgs/service-types)
-
-## 本机设置和网页设置
-
-本机设置用 DataStore，不提交到 Cursor：
-
-- 显示 Cursor Model、Other Model；两者全关时隐藏胶囊，不留下空壳。
-- 剩余／已用，默认剩余；所有表面同步切换。
-- 节奏线、紧凑样式、位置、明暗跟随系统、语言与大字体适配。
-- 前台刷新 30 / 60 / 120 / 300 秒，默认 60 秒；暂停与手动刷新。
-- 通知、低余额提醒、锁屏隐私、可选跨应用浮窗及授权状态。
-
-参考扩展允许最低 3 秒；Android 不照搬。前台才按秒定时、请求合并，
-页面隐藏取消普通轮询，返回立即检查新鲜度。后台 WorkManager 最低周期 15 分钟，
-不是准点保证；通知必须显示最后更新时间，不宣称实时。
-
-Cloud Agent 设置与本机外观分组：默认模型／仓库／分支前缀、PR 行为、
-环境继承和这次运行的 Secret 根据真实 API 能力提供原生编辑。
-隐私模式、账户资料、活跃会话、付费及 SCM 绑定提供网页入口。
-未确认的写入协议显示网页入口，不能做保存成功的假开关。
-
-## 设计验收
-
-实现时验证 320 dp、大字体 200%、明暗模式、横竖屏、折叠屏、TalkBack、减弱动画。
-胶囊点击、拖动、展开、返回键关闭、键盘焦点、权限拒绝与撤销均有明确结果。
-保留两个槽位，错误状态不跳位；零剩余、无限量、单池缺失、过期均有用例。
-原型只验证信息布局和交互，不代表 Overlay、通知或后台服务已通过真机测试。
+The prototype's navigation is for reviewing usage, settings, and notification states;
+it is not a promise that every design control is implemented in the Android release.
+For platform restrictions and integration sequencing, read the
+[implementation plan](../android-implementation-plan.md).
