@@ -4,6 +4,7 @@ import app.cursor.android.data.ApiFailure
 import app.cursor.android.data.CursorApi
 import app.cursor.android.data.SseEvent
 import app.cursor.android.data.SseParser
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -128,6 +129,25 @@ class CursorApiTest {
         val failure = runCatching { api.stream("bc", "run", "cursor") {} }.exceptionOrNull()
         assertEquals(410, (failure as ApiFailure).status)
     }
+
+    @Test
+    fun cancellingVisibleStreamClosesSocketPromptly() =
+        kotlinx.coroutines.runBlocking {
+            server.enqueue(
+                MockResponse()
+                    .setBody("event: heartbeat\ndata: {}\n\n")
+                    .setBodyDelay(2, java.util.concurrent.TimeUnit.SECONDS)
+            )
+            val stream = launch { api.stream("a", "r", null) {} }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                server.takeRequest(5, java.util.concurrent.TimeUnit.SECONDS)
+            }
+            kotlinx.coroutines.delay(100)
+            val started = System.nanoTime()
+            stream.cancel()
+            kotlinx.coroutines.withTimeout(2_000) { stream.join() }
+            assertTrue((System.nanoTime() - started) / 1_000_000 < 2_000)
+        }
 
     @Test
     fun parserSupportsCommentsMultilineAndEmptyIds() {

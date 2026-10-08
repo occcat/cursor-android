@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -70,6 +71,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -113,6 +115,10 @@ fun CursorApp(state: UiState, model: CursorViewModel) {
             darkColorScheme(
                 primary = Color(0xFFF0F0F0),
                 onPrimary = Color(0xFF181818),
+                secondary = Color(0xFFF0F0F0),
+                secondaryContainer = Color(0xFF333333),
+                onSecondaryContainer = Color(0xFFF0F0F0),
+                outline = Color(0xFF727272),
                 surfaceContainerLow = Color(0xFF242424),
                 surfaceContainerHigh = Color(0xFF292929),
                 surfaceContainerHighest = Color(0xFF333333),
@@ -126,6 +132,10 @@ fun CursorApp(state: UiState, model: CursorViewModel) {
             lightColorScheme(
                 primary = Color(0xFF141414),
                 onPrimary = Color.White,
+                secondary = Color(0xFF141414),
+                secondaryContainer = Color(0xFFE4E4DF),
+                onSecondaryContainer = Color(0xFF141414),
+                outline = Color(0xFF888888),
                 surfaceContainerLow = Color(0xFFF0F0EC),
                 surfaceContainerHigh = Color(0xFFE9E9E5),
                 surfaceContainerHighest = Color(0xFFE4E4DF),
@@ -364,8 +374,8 @@ private fun Inbox(
         item {
             Text(
                 label(
-                    "Independent, open-source client. Not affiliated with Cursor.",
-                    "独立开源客户端，与 Cursor 官方无关联。",
+                    "Independent community client. Not affiliated with Cursor.",
+                    "独立社区客户端，与 Cursor 官方无关联。",
                 ),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -876,6 +886,11 @@ private fun SettingsScreen(
                 Modifier.fillMaxWidth(),
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        autoCorrectEnabled = false,
+                    ),
                 label = { Text("API key") },
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1216,6 +1231,8 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
             { secretValue = it },
             Modifier.fillMaxWidth(),
             visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions =
+                KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
             label = { Text(label("Secret value", "密钥值")) },
         )
         Button(

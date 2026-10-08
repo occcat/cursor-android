@@ -7,6 +7,7 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -123,6 +124,9 @@ class CursorApi(
                         }
                     }
                 }
+            } catch (failure: IOException) {
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                throw failure
             } finally {
                 cancellation.cancel()
                 call.cancel()

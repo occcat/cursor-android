@@ -62,6 +62,8 @@ class UsageOverlayService : Service() {
         val view =
             TextView(this).apply {
                 textSize = 13f
+                minHeight = (48 * density).toInt()
+                setSingleLine(true)
                 setTextColor(Color.rgb(240, 240, 240))
                 setPadding(
                     (16 * density).toInt(),
@@ -150,26 +152,37 @@ class UsageOverlayService : Service() {
                     ) {
                         stopSelf()
                     } else {
-                        view.text =
+                        val values =
                             buildList {
-                                    if (preferences.cursor)
+                                    if (preferences.cursor) {
                                         add(
                                             "Cursor " +
                                                 usageValue(usage, true, preferences.remaining)
                                         )
-                                    if (preferences.other)
+                                    }
+                                    if (preferences.other) {
                                         add(
                                             "Other " +
                                                 usageValue(usage, false, preferences.remaining)
                                         )
+                                    }
                                 }
-                                .joinToString("  ·  ") +
-                                "\n" +
-                                getString(
-                                    if (preferences.remaining) app.cursor.android.R.string.remaining
-                                    else app.cursor.android.R.string.used
+                                .joinToString("  ·  ")
+                        view.text = values
+                        val metric =
+                            getString(
+                                if (preferences.remaining) app.cursor.android.R.string.remaining
+                                else app.cursor.android.R.string.used
+                            )
+                        val updated =
+                            java.text.DateFormat.getDateTimeInstance(
+                                    java.text.DateFormat.SHORT,
+                                    java.text.DateFormat.SHORT,
                                 )
-                        view.contentDescription = view.text
+                                .format(java.util.Date(usage.fetchedAt))
+                        view.contentDescription =
+                            "$values $metric. " +
+                                getString(app.cursor.android.R.string.updated, updated)
                         getSystemService(android.app.NotificationManager::class.java)
                             .notify(
                                 UsageNotifications.overlayId,

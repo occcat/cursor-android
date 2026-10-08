@@ -3,6 +3,7 @@ package app.cursor.android.data
 import app.cursor.android.domain.UsageSnapshot
 import java.io.IOException
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -193,7 +194,7 @@ class CursorRepository(
                 throw IOException("Creation outcome unknown; refresh agents before sending again")
             }
         }
-        refreshAgents()
+        runCatching { refreshAgents() }.onFailure { if (it is CancellationException) throw it }
         return id
     }
 
@@ -270,7 +271,13 @@ class CursorRepository(
                         persist(session, cacheKey, stored.toString())
                         send(stored)
                     }
-                    if (event.type == "done") done = true
+                    if (
+                        event.type == "done" ||
+                            (event.type == "result" &&
+                                stored.string("status") in
+                                    listOf("FINISHED", "ERROR", "CANCELLED", "EXPIRED"))
+                    )
+                        done = true
                 }
                 if (done) break
                 failures++
@@ -290,14 +297,35 @@ class CursorRepository(
                 if (exception is ApiFailure && exception.status in listOf(400, 401, 403))
                     throw exception
                 failures++
-                val retry = (exception as? ApiFailure)?.retryAfter?.toLongOrNull()
-                delay((retry?.times(1000) ?: (1000L shl failures)).coerceAtMost(120_000))
+                val retry = retryDelayMillis((exception as? ApiFailure)?.retryAfter)
+                delay(retry ?: ((1000L shl failures) + kotlin.random.Random.nextLong(500)))
             }
         }
+        if (failures >= 5) throw IOException("Live connection paused; refresh to reconnect")
     }
 
     private suspend fun persist(session: Long, key: String, json: String) =
         lock.withLock {
             if (generation == session) cache.put(CacheEntry(key, json, System.currentTimeMillis()))
         }
+}
+
+fun retryDelayMillis(header: String?, now: Long = System.currentTimeMillis()): Long? {
+    if (header == null) return null
+    header
+        .toLongOrNull()
+        ?.takeIf { it >= 0 }
+        ?.let {
+            return it.coerceAtMost(Long.MAX_VALUE / 1000) * 1000
+        }
+    return runCatching {
+            (java.time.ZonedDateTime.parse(
+                        header,
+                        java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME,
+                    )
+                    .toInstant()
+                    .toEpochMilli() - now)
+                .coerceAtLeast(0)
+        }
+        .getOrNull()
 }

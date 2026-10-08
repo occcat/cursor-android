@@ -137,6 +137,18 @@ class RepositoryTest {
     }
 
     @Test
+    fun retryAfterIsRespectedBeyondTwoMinutesAndSupportsHttpDates() {
+        assertEquals(300_000L, app.cursor.android.data.retryDelayMillis("300"))
+        assertEquals(
+            60_000L,
+            app.cursor.android.data.retryDelayMillis(
+                "Thu, 01 Oct 2026 12:01:00 GMT",
+                java.time.Instant.parse("2026-10-01T12:00:00Z").toEpochMilli(),
+            ),
+        )
+    }
+
+    @Test
     fun repositoryPickerUsesHourlyCache() = runTest {
         server.enqueue(MockResponse().setBody("""{"items":[{"url":"https://github.com/a/b"}]}"""))
         repository.repositories()
