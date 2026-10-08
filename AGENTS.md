@@ -1,48 +1,52 @@
-# Agent 约定
+# Agent Guidelines
 
-本文件只约束编码与提交。不要把产品计划或业务说明写进这里。
+This file governs coding and commits only. Do not add product plans or business descriptions here.
 
-## 提交
+## Commits
 
-每个提交必须使用 [Conventional Commits](https://www.conventionalcommits.org/)。
+Every commit must follow [Conventional Commits](https://www.conventionalcommits.org/).
 
-- subject 一行：`type(scope): 摘要`
-- subject 之后必须空一行，再写**多行正文**
-- 正文必须写明：
-  1. **行为**：这次提交改变了什么可观察行为
-  2. **兼容边界**：什么必须保持不变
-  3. **验证命令**：如何验证（写具体命令，禁止只写「已测试」）
-- 禁止只有一行 subject 的提交
-- 禁止把正文塞进 subject
+- Use a single-line subject: `type(scope): summary`.
+- Follow the subject with a blank line and a **multiline body**.
+- The body must explain:
+  1. **Behavior**: the observable behavior changed by this commit.
+  2. **Compatibility boundary**: what must remain unchanged.
+  3. **Validation commands**: how to verify the change, using specific commands rather than just
+     saying "tested".
+- Do not create commits containing only a subject line.
+- Do not put the body in the subject.
 
-示例：
+Example:
 
 ```
 feat(inbox): show pinned agents above older threads
 
-收件箱把置顶会话放在其余会话上面，未置顶的顺序不变。
-不改变归档、搜索和发起会话的入口。
-验证：`./gradlew :app:testDebugUnitTest`
+The inbox places pinned conversations above the rest, preserving the order of unpinned ones.
+The entry points for archiving, searching, and starting conversations remain unchanged.
+Validation: `./gradlew :app:testDebugUnitTest`
 ```
 
-`type` 使用 `feat` / `fix` / `docs` / `test` / `refactor` / `chore` / `ci`。`scope` 用模块名。
+Use `feat` / `fix` / `docs` / `test` / `refactor` / `chore` / `ci` for `type`.
+Use the module name for `scope`.
 
-## 版本
+## Versions
 
-打出供安装或分发的 release 包时，必须先递增版本，禁止沿用上一版的 `versionName` / `versionCode`。
+Before building a release package for installation or distribution, increment the version.
+Do not reuse the previous release's `versionName` or `versionCode`.
 
-- 改 `app/build.gradle.kts`：`versionName` 递增补丁号，`versionCode` 加 1。
-- 单独提交：`chore(app): bump release to <versionName>`。
-- 不改变功能行为与 `applicationId`。
+- In `app/build.gradle.kts`, increment the patch component of `versionName` and add 1 to
+  `versionCode`.
+- Use a separate commit: `chore(app): bump release to <versionName>`.
+- Keep feature behavior and `applicationId` unchanged.
 
-## 编码
+## Coding
 
-- 空格缩进，不用 Tab。Kotlin **4 空格**。
-- 行宽 100。连续空行最多 1 行。
-- 标识符 ASCII；类型名大写驼峰；其余 lowerCamelCase。
-- 导入有序，不提交未使用导入。
-- 多元素集合保留尾逗号。
-- 文档用 KDoc；不要用块注释堆砌。
-- 不在表达式里赋值。
-- 不扩大任务范围：不顺手重构无关代码。
-- 不提交密钥、口令、`local.properties`、备份密文、生成物。
+- Indent with spaces, not tabs. Use **4 spaces** for Kotlin.
+- Limit lines to 100 characters. Use no more than one consecutive blank line.
+- Use ASCII identifiers, UpperCamelCase for type names, and lowerCamelCase for other identifiers.
+- Keep imports sorted. Do not commit unused imports.
+- Keep trailing commas in collections with multiple elements.
+- Use KDoc for documentation; do not pile up block comments.
+- Do not assign values within expressions.
+- Stay within the task's scope: do not refactor unrelated code along the way.
+- Do not commit keys, passwords, `local.properties`, encrypted backups, or generated artifacts.
