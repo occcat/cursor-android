@@ -26,7 +26,8 @@ test("local assets and fragment links resolve and IDs are unique", async () => {
 
 test("demo does not embed credentials, tracking, or live business API calls", async () => {
     const app = await readFile(new URL("app.mjs", source), "utf8");
-    assert.deepEqual([...app.matchAll(/fetch\("([^"]+)"/g)].map(match => match[1]), ["/latest.json"]);
+    const requests = [...app.matchAll(/fetch\("([^"]+)"/g)].map(match => match[1]);
+    assert.deepEqual(requests, ["/latest.json"]);
     assert.doesNotMatch(html, /<script[^>]+src="https?:/i);
     assert.match(html, /Sample data/);
     assert.match(html, /not affiliated/i);

@@ -24,7 +24,9 @@ createServer(async (request, response) => {
         }
         if ((await stat(file)).isDirectory()) file = resolve(file, "index.html");
         const data = await readFile(file);
-        response.writeHead(200, { "Content-Type": types[extname(file)] ?? "application/octet-stream" });
+        response.writeHead(200, {
+            "Content-Type": types[extname(file)] ?? "application/octet-stream",
+        });
         response.end(data);
     } catch {
         response.writeHead(404, { "Content-Type": "text/plain" }).end("Not found");

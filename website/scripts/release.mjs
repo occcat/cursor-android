@@ -23,8 +23,12 @@ export function releaseMetadata(release) {
 
 export async function latestRelease(fetcher = fetch) {
     try {
-        const response = await fetcher(`https://api.github.com/repos/${repository}/releases/latest`, {
-            headers: { Accept: "application/vnd.github+json", "User-Agent": "cursor-android-website" },
+        const endpoint = `https://api.github.com/repos/${repository}/releases/latest`;
+        const response = await fetcher(endpoint, {
+            headers: {
+                Accept: "application/vnd.github+json",
+                "User-Agent": "cursor-android-website",
+            },
             signal: AbortSignal.timeout(10000),
         });
         if (response.status === 404) return releaseMetadata(null);

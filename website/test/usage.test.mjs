@@ -13,7 +13,8 @@ test("default remaining and used representations agree across both pools", () =>
 });
 
 test("unknown values never become zero or a full allowance", () => {
-    for (const value of [null, undefined, "", " ", true, false, NaN, Infinity, "3e2", "32%", {}, []]) {
+    const invalid = [null, undefined, "", " ", true, false, NaN, Infinity, "3e2", "32%", {}, []];
+    for (const value of invalid) {
         assert.equal(percent(value), null);
         assert.deepEqual(poolValue(value, "remaining"), { text: "—", width: null });
     }
@@ -42,5 +43,6 @@ test("both pools may be hidden and partial selection does not reorder them", () 
     assert.equal(usageView({ cursor: false, other: false }).visible, false);
     const one = usageView({ cursor: false });
     assert.equal(one.visible, true);
-    assert.deepEqual(one.pools.filter(pool => pool.enabled).map(pool => pool.name), ["Other Model"]);
+    const enabled = one.pools.filter(pool => pool.enabled).map(pool => pool.name);
+    assert.deepEqual(enabled, ["Other Model"]);
 });

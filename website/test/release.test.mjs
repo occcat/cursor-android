@@ -21,8 +21,10 @@ test("only a real matching stable APK enables direct download", () => {
 
 test("release absence, API limits and network failure retain honest fallback links", async () => {
     assert.equal((await latestRelease(async () => ({ status: 404 }))).status, "unpublished");
-    assert.equal((await latestRelease(async () => ({ status: 403, ok: false }))).status, "unavailable");
-    assert.equal((await latestRelease(async () => { throw new Error("Offline"); })).status, "unavailable");
+    const limited = await latestRelease(async () => ({ status: 403, ok: false }));
+    assert.equal(limited.status, "unavailable");
+    const offline = await latestRelease(async () => { throw new Error("Offline"); });
+    assert.equal(offline.status, "unavailable");
     assert.equal((await latestRelease(async () => ({ ok: true, json: async () => stable })))
         .downloadUrl, stable.assets[0].browser_download_url);
 });
