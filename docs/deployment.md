@@ -64,8 +64,24 @@ success confirms that a deployment was requested, not that the build is live.
 
 Before distributing an Android release, increment versionName's patch and versionCode
 by one in `app/build.gradle.kts`, in a separate Conventional Commit. Keep applicationId
-stable. Signing credentials stay in protected CI secrets or a local secure store;
-never commit a keystore or claim an unsigned/debug artifact is a signed release.
+stable. The Android release workflow runs for version tags or manual dispatch of an existing
+tag. The tag must match `v<versionName>` in the checked-out build file. It requires
+these GitHub Actions secrets (names only; their values must remain private):
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+The workflow decodes signing material into the temporary runner directory, runs unit
+tests, release lint, and release assembly, publishes the APK plus SHA-256 checksum,
+then requests the Pages build. Cleanup removes the temporary keystore even on failure.
+Locally, Gradle accepts `ANDROID_KEYSTORE_PATH` with the same password/alias variables.
+Never commit a keystore or claim an unsigned/debug artifact is a signed release.
+The infrastructure Operator configured these four signing secrets for this repository
+on October 9, 2026 and retained a durable key outside the repository. Neither secret
+configuration nor a valid tag establishes that a signed artifact has built, installed,
+or been published successfully; record those checks separately.
 
 Check the new site's release label/link, APK asset, English default, Chinese selection,
 mobile layout, demo interaction, custom-domain HTTPS, and absence of client-side secrets.
