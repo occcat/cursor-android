@@ -172,7 +172,7 @@ The Android client is a controller, not a self-hosted worker.
 | GET | `/v0/private-workers/summary` | User/team connected and in-use counts |
 | GET | `/v0/private-workers/{id}` | Worker details |
 | GET | `/v0/private-workers/pools` | Durable pools, including currently empty pools |
-| POST | `/v0/private-workers/pools` | `scope:user|team,poolName,repoOwner?,repoName?,repoUrl?,workerReadyTimeoutSeconds?` |
+| POST | `/v0/private-workers/pools` | `scope:user\|team,poolName,repoOwner?,repoName?,repoUrl?,workerReadyTimeoutSeconds?` |
 | DELETE | `/v0/private-workers/pools` | Query `scope,pool_name,repo_owner?,repo_name?`; does not disconnect workers |
 | GET | `/v0/private-workers/pending-requests` | `limit,pageToken,repository?,pool?`; requests and shared `streamCursor` |
 | GET | `/v0/private-workers/pending-requests/stream` | SSE with filter-bound cursor; header takes precedence |
