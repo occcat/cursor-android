@@ -28,6 +28,7 @@
         </a>
         <nav aria-label="Main navigation" data-i18n-aria="navigation">
             <a href="#experience" data-i18n="experience">Experience</a>
+            <a href="#widgets" data-i18n="widgets">Widgets</a>
             <a href="https://github.com/occcat/cursor-android#readme" data-i18n="docs">Docs</a>
             <a href="https://github.com/occcat/cursor-android/releases"
                 class="nav-changelog" data-i18n="changelog">Changelog</a>
@@ -83,10 +84,11 @@
                         </div>
                         <div class="demo-controls">
                             <label for="scenario" data-i18n="tryState">Try a state</label>
-                            <select id="scenario">
+                            <select id="scenario" data-scenario>
                                 <option value="normal" data-i18n="normal">On track</option>
                                 <option value="tight" data-i18n="tight">Running low</option>
                                 <option value="offline" data-i18n="offline">Offline</option>
+                                <option value="stale" data-i18n="stale">Stale snapshot</option>
                                 <option value="expired" data-i18n="expired">Session expired</option>
                                 <option value="partial" data-i18n="partial">One pool
                                     unavailable</option>
@@ -100,9 +102,11 @@
                                     data-i18n="used">Used</button>
                             </div>
                             <div class="pool-switches">
-                                <label><input type="checkbox" id="show-cursor" checked>
+                                <label><input type="checkbox" id="show-cursor" data-pool="cursor"
+                                    checked>
                                     <span class="dot cursor"></span>Cursor Model</label>
-                                <label><input type="checkbox" id="show-other" checked>
+                                <label><input type="checkbox" id="show-other" data-pool="other"
+                                    checked>
                                     <span class="dot other"></span>Other Model</label>
                             </div>
                         </div>
@@ -129,7 +133,7 @@
                             <div id="panel-usage" class="phone-panel" role="tabpanel"
                                 aria-labelledby="tab-usage">
                                 <div class="panel-heading"><h3>Cursor Usage</h3>
-                                    <span class="chip">Pro</span></div>
+                                    <span class="chip" id="usage-plan">Pro</span></div>
                                 <p class="muted mode-label" data-mode-label>Remaining this cycle</p>
                                 <div id="pool-rows"></div>
                                 <p id="pool-empty" class="empty-note" hidden data-i18n="poolEmpty">
@@ -243,8 +247,100 @@
                 </article>
             </div>
         </section>
+        <section class="widgets wrap" id="widgets" aria-labelledby="widgets-title">
+            <div class="section-heading">
+                <span class="section-number">03 / <span data-i18n="homeScreen">HOME
+                    SCREEN</span></span>
+                <h2 id="widgets-title" data-i18n="widgetsTitle">A place for the essentials.<br>
+                    Before you open the app.</h2>
+            </div>
+            <div class="widget-stage">
+                <div class="widget-config">
+                    <p class="eyebrow" data-i18n="widgetPreviewLabel">WIDGET LAYOUT PREVIEW</p>
+                    <h3 data-i18n="widgetIntro">Three ways to keep Cursor close.</h3>
+                    <p class="widget-description" data-i18n="widgetDescription">Check two usage
+                        pools, revisit a recent agent, or open the next task. Choose a layout to
+                        explore with sample data.</p>
+                    <div class="widget-families" role="group" aria-label="Widget family"
+                        data-i18n-aria="widgetFamily">
+                        <button type="button" data-widget-family="usage" aria-pressed="true"
+                            data-i18n="usageWidget">Usage</button>
+                        <button type="button" data-widget-family="agents" aria-pressed="false"
+                            data-i18n="recentAgents">Recent agents</button>
+                        <button type="button" data-widget-family="actions" aria-pressed="false"
+                            data-i18n="quickActions">Quick actions</button>
+                    </div>
+                    <label for="widget-size" class="widget-label" data-i18n="widgetSize">
+                        Suggested size</label>
+                    <select id="widget-size"></select>
+                    <div id="widget-usage-controls">
+                        <label for="widget-scenario" class="widget-label" data-i18n="tryState">
+                            Try a state</label>
+                        <select id="widget-scenario" data-scenario>
+                            <option value="normal" data-i18n="normal">On track</option>
+                            <option value="tight" data-i18n="tight">Running low</option>
+                            <option value="offline" data-i18n="offline">Offline</option>
+                            <option value="stale" data-i18n="stale">Stale snapshot</option>
+                            <option value="expired" data-i18n="expired">Session expired</option>
+                            <option value="partial" data-i18n="partial">One pool
+                                unavailable</option>
+                            <option value="unlimited" data-i18n="unlimited">Unlimited</option>
+                        </select>
+                        <div class="segmented" aria-label="Percentage display"
+                            data-i18n-aria="percentageDisplay">
+                            <button type="button" data-mode="remaining" aria-pressed="true"
+                                data-i18n="remaining">Remaining</button>
+                            <button type="button" data-mode="used" aria-pressed="false"
+                                data-i18n="used">Used</button>
+                        </div>
+                        <div class="pool-switches">
+                            <label><input type="checkbox" data-pool="cursor" checked>
+                                <span class="dot cursor"></span>Cursor Model</label>
+                            <label><input type="checkbox" data-pool="other" checked>
+                                <span class="dot other"></span>Other Model</label>
+                        </div>
+                    </div>
+                    <div id="widget-agent-controls" class="pool-switches" hidden>
+                        <label><input id="widget-show-titles" type="checkbox">
+                            <span data-i18n="widgetShowTitles">Show agent titles</span></label>
+                        <p class="widget-sizing-note" data-i18n="widgetPrivacyNote">Titles stay
+                            private by default. Enable them in app settings when you want them
+                            on your home screen.</p>
+                    </div>
+                    <p class="widget-sizing-note" data-i18n="widgetSizingNote">Cell counts are
+                        suggestions. Exact sizing and resizing depend on your Android launcher.</p>
+                </div>
+                <div class="widget-canvas">
+                    <div class="widget-canvas-heading"><span class="mono" data-i18n="homePreview">
+                        HOME SCREEN PREVIEW</span><span data-i18n="sampleOnly">
+                        Sample data · No account connected</span></div>
+                    <div class="launcher-date" aria-hidden="true">
+                        <span data-i18n="notificationDate">Friday, October
+                            9</span><strong>09:41</strong>
+                    </div>
+                    <div class="widget-placement">
+                        <article id="widget-preview" class="home-widget" aria-live="polite"
+                            aria-label="Widget preview"
+                                data-i18n-aria="widgetPreviewAria"></article>
+                    </div>
+                    <p id="widget-feedback" class="widget-feedback" role="status"></p>
+                    <div class="launcher-dock" aria-hidden="true">
+                        <span>⌁</span><span>◉</span><span>▤</span>
+                        <img src="/favicon.svg" width="39" height="39" alt="">
+                    </div>
+                </div>
+            </div>
+            <div class="widget-footnotes">
+                <p data-i18n="widgetCachedNote">Recent agents shows cached records and their
+                    known status, not a live count of running agents.</p>
+                <p data-i18n="widgetActionNote">New agent opens the composer. Sending a task is
+                    always a separate action inside the app.</p>
+                <a href="https://github.com/occcat/cursor-android#readme" class="text-link"
+                    data-i18n="seeSupport">See current support ↗</a>
+            </div>
+        </section>
         <section class="principles wrap">
-            <div><span class="section-number">03 / <span data-i18n="byDesign">BY
+            <div><span class="section-number">04 / <span data-i18n="byDesign">BY
                 DESIGN</span></span>
                 <h2 data-i18n="principlesTitle">Useful information.<br>A little room to
                     breathe.</h2></div>
@@ -255,9 +351,9 @@
                         want more context, and hide either pool when you don’t.</p></div></article>
                 <article><span>02</span><div><h3 data-i18n="principleTwo">Honest when the network
                     isn’t.</h3>
-                    <p data-i18n="principleTwoCopy">Missing data stays unknown. Offline and expired
-                        sessions keep their context. Unlimited never becomes a made-up
-                            percentage.</p>
+                    <p data-i18n="principleTwoCopy">Missing data stays unknown. Offline snapshots
+                        keep their values; expired sessions ask you to reconnect. Unlimited never
+                        becomes a made-up percentage.</p>
                     </div></article>
                 <article><span>03</span><div><h3 data-i18n="principleThree">An Android citizen.</h3>
                     <p data-i18n="principleThreeCopy">Native controls, optional notifications, and
@@ -267,7 +363,7 @@
             </div>
         </section>
         <section class="faq wrap" aria-labelledby="faq-title">
-            <div class="section-heading"><span class="section-number">04 / <span
+            <div class="section-heading"><span class="section-number">05 / <span
                 data-i18n="goodToKnow">GOOD TO KNOW</span></span>
                 <h2 id="faq-title" data-i18n="faqTitle">A few things, before you go.</h2></div>
             <div class="faq-list">

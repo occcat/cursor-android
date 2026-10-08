@@ -24,8 +24,8 @@ test("unknown values never become zero or a full allowance", () => {
     assert.equal(usageView({ scenario: "partial" }).pools[1].text, "—");
 });
 
-test("offline and expired sessions preserve their last snapshot", () => {
-    for (const scenario of ["offline", "expired"]) {
+test("offline and stale sessions preserve their last snapshot", () => {
+    for (const scenario of ["offline", "stale"]) {
         const view = usageView({ scenario });
         assert.equal(view.status, scenario);
         assert.deepEqual(view.pools.map(pool => pool.text), ["68%", "39%"]);
@@ -45,4 +45,12 @@ test("both pools may be hidden and partial selection does not reorder them", () 
     assert.equal(one.visible, true);
     const enabled = one.pools.filter(pool => pool.enabled).map(pool => pool.name);
     assert.deepEqual(enabled, ["Other Model"]);
+});
+
+test("expired connections clear percentages instead of exposing old account data", () => {
+    for (const mode of ["remaining", "used"]) {
+        const view = usageView({ scenario: "expired", mode });
+        assert.ok(view.pools.every(pool => pool.used === null && pool.width === null));
+        assert.deepEqual(view.pools.map(pool => pool.text), ["—", "—"]);
+    }
 });

@@ -1,5 +1,6 @@
 import { translations } from "./i18n.mjs";
 import { usageView } from "./usage.mjs";
+import { widgetAgents, widgetPreview, widgetSizes } from "./widgets.mjs";
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -18,6 +19,10 @@ try { if (localStorage.getItem("cursor-android-language") === "zh-CN") language 
 catch { /* Language remains usable when browser storage is unavailable. */ }
 const state = { scenario: "normal", mode: "remaining", cursor: true, other: true };
 let release;
+let widgetFamily = "usage";
+let widgetSize = "2x2";
+let widgetAction = null;
+let widgetShowTitles = false;
 const t = key => translations[language][key] ?? original.get(key) ?? translations.en[key] ?? key;
 
 function element(tag, className, text) {
@@ -29,6 +34,8 @@ function element(tag, className, text) {
 
 function renderUsage() {
     const view = usageView(state);
+    $$("[data-scenario]").forEach(node => { node.value = state.scenario; });
+    $$("[data-pool]").forEach(node => { node.checked = state[node.dataset.pool]; });
     const capsule = $("#capsule");
     const rows = $("#pool-rows");
     const notification = $("#notification-values");
@@ -44,7 +51,8 @@ function renderUsage() {
     $("#pool-empty").hidden = view.visible;
     $("#usage-notification").hidden = !view.visible;
     $("#notification-hidden").hidden = view.visible;
-    $("#cycle-card").hidden = view.status === "unlimited" || !view.visible;
+    $("#cycle-card").hidden = ["unlimited", "expired"].includes(view.status) || !view.visible;
+    $("#usage-plan").hidden = view.status === "expired";
     for (const pool of view.pools.filter(pool => pool.enabled)) {
         const pill = element("span");
         pill.append(element("i", `dot ${pool.id}`),
@@ -68,7 +76,8 @@ function renderUsage() {
             const suffix = t(state.mode === "remaining" ? "usedDetail" : "remainingDetail");
             row.append(element("small", "", `${Math.round(opposite)}% ${suffix}`));
         } else if (view.status !== "unlimited") {
-            row.append(element("small", "", t("unavailable")));
+            const hint = view.status === "expired" ? "reconnectForUsage" : "unavailable";
+            row.append(element("small", "", t(hint)));
         }
         rows.append(row);
         const value = element("span");
@@ -78,8 +87,96 @@ function renderUsage() {
     }
     const note = t(`${view.status}Note`);
     $("#state-note").textContent = note;
-    $("#state-note").classList.toggle("warning", ["offline", "expired"].includes(view.status));
+    const warning = ["offline", "stale", "expired"].includes(view.status);
+    $("#state-note").classList.toggle("warning", warning);
     $("#notification-state").textContent = note;
+    renderWidgets();
+}
+
+function renderWidgets() {
+    const view = widgetPreview(state, widgetFamily, widgetSize);
+    const preview = $("#widget-preview");
+    preview.replaceChildren();
+    preview.dataset.family = view.family;
+    preview.dataset.size = view.size;
+    const heading = element("div", "home-widget-heading");
+    const title = view.family === "usage" ? "Cursor Usage"
+        : t(view.family === "agents" ? "recentAgents" : "quickActions");
+    heading.append(element("strong", "", title), element("span", "widget-mark", "◈"));
+    preview.append(heading);
+    if (view.family === "usage") {
+        preview.append(element("p", "home-widget-mode",
+            t(state.mode === "remaining" ? "remainingCycle" : "usedCycle")));
+        const pools = element("div", "home-widget-pools");
+        for (const pool of view.pools) {
+            const item = element("div", "home-widget-pool");
+            const label = element("span", "home-widget-pool-label");
+            label.append(element("i", `dot ${pool.id}`), document.createTextNode(pool.name));
+            item.append(label, element("strong", "", pool.text));
+            if (view.detailed && pool.width !== null) {
+                const track = element("div", `pool-track ${pool.id}`);
+                const fill = element("span");
+                fill.style.width = `${pool.width}%`;
+                track.setAttribute("aria-hidden", "true");
+                track.append(fill);
+                item.append(track);
+            }
+            pools.append(item);
+        }
+        if (!view.pools.length) pools.append(element("p", "widget-empty", t("widgetEmpty")));
+        preview.append(pools, element("p", "home-widget-status", view.status === "current"
+            ? t("widgetSnapshot") : t(`${view.status}Note`)));
+    } else if (view.family === "agents") {
+        preview.append(element("p", "home-widget-mode", t("widgetCached")));
+        for (const agent of widgetAgents(widgetShowTitles, view.wide)) {
+            const row = element("div", "home-widget-agent");
+            row.append(element("span", "widget-agent-icon", "◈"));
+            const body = element("div");
+            const title = agent.titleKey ? t(agent.titleKey)
+                : `${t("widgetPrivateTitle")} ${agent.number}`;
+            body.append(element("strong", "", title),
+                element("span", "", t("widgetActive")));
+            row.append(body);
+            preview.append(row);
+        }
+    } else {
+        const actions = element("div", "home-widget-actions");
+        const icons = { inbox: "▤", newAgent: "+", usage: "◔", settings: "⚙" };
+        for (const action of view.actions) {
+            const button = element("button");
+            button.type = "button";
+            button.dataset.widgetAction = action;
+            const label = `widget${action[0].toUpperCase()}${action.slice(1)}Action`;
+            button.append(element("span", "", icons[action]), element("strong", "", t(label)));
+            button.addEventListener("click", () => {
+                widgetAction = action;
+                renderWidgetFeedback();
+            });
+            actions.append(button);
+        }
+        preview.append(actions);
+    }
+    $("#widget-usage-controls").hidden = view.family !== "usage";
+    $("#widget-agent-controls").hidden = view.family !== "agents";
+    renderWidgetFeedback();
+}
+
+function renderWidgetFeedback() {
+    const key = widgetFamily === "actions" && widgetAction
+        ? `widget${widgetAction[0].toUpperCase()}${widgetAction.slice(1)}Result` : "widgetIdle";
+    $("#widget-feedback").textContent = t(key);
+}
+
+function renderWidgetSizes() {
+    const select = $("#widget-size");
+    select.replaceChildren();
+    if (!widgetSizes[widgetFamily].includes(widgetSize)) widgetSize = widgetSizes[widgetFamily][0];
+    for (const size of widgetSizes[widgetFamily]) {
+        const option = element("option", "", size.replace("x", " × "));
+        option.value = size;
+        select.append(option);
+    }
+    select.value = widgetSize;
 }
 
 function renderRelease() {
@@ -116,10 +213,10 @@ $("#language").addEventListener("click", () => {
     catch { /* Optional preference. */ }
     renderLanguage();
 });
-$("#scenario").addEventListener("change", event => {
+$$("[data-scenario]").forEach(select => select.addEventListener("change", event => {
     state.scenario = event.target.value;
     renderUsage();
-});
+}));
 $$("[data-mode]").forEach(button => button.addEventListener("click", () => {
     state.mode = button.dataset.mode;
     $$("[data-mode]").forEach(node => {
@@ -127,12 +224,27 @@ $$("[data-mode]").forEach(button => button.addEventListener("click", () => {
     });
     renderUsage();
 }));
-for (const pool of ["cursor", "other"]) {
-    $(`#show-${pool}`).addEventListener("change", event => {
-        state[pool] = event.target.checked;
-        renderUsage();
+$$("[data-pool]").forEach(input => input.addEventListener("change", event => {
+    state[input.dataset.pool] = event.target.checked;
+    renderUsage();
+}));
+$$("[data-widget-family]").forEach(button => button.addEventListener("click", () => {
+    widgetFamily = button.dataset.widgetFamily;
+    widgetAction = null;
+    $$("[data-widget-family]").forEach(node => {
+        node.setAttribute("aria-pressed", String(node.dataset.widgetFamily === widgetFamily));
     });
-}
+    renderWidgetSizes();
+    renderWidgets();
+}));
+$("#widget-size").addEventListener("change", event => {
+    widgetSize = event.target.value;
+    renderWidgets();
+});
+$("#widget-show-titles").addEventListener("change", event => {
+    widgetShowTitles = event.target.checked;
+    renderWidgets();
+});
 const tabs = $$("[data-tab]");
 function selectTab(button) {
     tabs.forEach(tab => {
@@ -160,6 +272,7 @@ $("#privacy-link").addEventListener("click", event => {
     event.preventDefault();
     $("#privacy-dialog").showModal();
 });
+renderWidgetSizes();
 renderLanguage();
 fetch("/latest.json", { cache: "no-cache" })
     .then(response => response.ok ? response.json()
