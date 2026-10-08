@@ -2,6 +2,7 @@ package app.cursor.android.widget
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import app.cursor.android.MainActivity
 
 /** Only allow native destinations. Widget taps cannot launch a remote mutation or arbitrary URL. */
@@ -32,6 +33,14 @@ data class WidgetDestination(val screen: String, val agentId: String = "") {
     fun intent(context: Context): Intent =
         Intent(context, MainActivity::class.java)
             .setAction(action)
+            .setData(
+                Uri.Builder()
+                    .scheme("cursor-android")
+                    .authority("widget")
+                    .appendPath(screen)
+                    .appendPath(agentId)
+                    .build()
+            )
             .putExtra(screenExtra, screen)
             .putExtra(agentExtra, agentId)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)

@@ -40,6 +40,27 @@ data class WidgetState(
             else -> text("Updated ", "更新于 ") + time(usage.fetchedAt)
         }
 
+    fun compactUsageStatus(now: Long): String {
+        if (!preferences.cursor && !preferences.other || !connections.web || usage == null) {
+            return usageStatus(now)
+        }
+        val metric = if (preferences.remaining) text("Left", "剩余") else text("Used", "已用")
+        val qualifier =
+            when {
+                usage.pendingReset(now) -> text("reset due", "待重置")
+                now - usage.fetchedAt > staleAfter -> text("stale", "已过期")
+                preferences.paused -> text("paused", "已暂停")
+                else -> ""
+            }
+        val timestamp =
+            if (qualifier.isEmpty()) time(usage.fetchedAt)
+            else
+                DateTimeFormatter.ofPattern("HH:mm")
+                    .withZone(ZoneId.systemDefault())
+                    .format(Instant.ofEpochMilli(usage.fetchedAt))
+        return listOf(metric, qualifier, timestamp).filter(String::isNotEmpty).joinToString(" · ")
+    }
+
     fun agentStatus(now: Long): String =
         when {
             !connections.api -> text("Connect API key", "连接 API Key")

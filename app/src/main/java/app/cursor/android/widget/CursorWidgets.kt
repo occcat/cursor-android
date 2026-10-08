@@ -15,6 +15,7 @@ import androidx.glance.LocalSize
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import androidx.glance.appwidget.LinearProgressIndicator
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
@@ -95,50 +96,69 @@ class UsageWidget : CursorWidget() {
         val detailed = size.height >= 180.dp
         val wide = size.width >= 320.dp
         val context = LocalContext.current
+        val largerText = context.resources.configuration.fontScale > 1.15f
         Column(
             GlanceModifier.fillMaxSize()
                 .background(surface)
                 .cornerRadius(24.dp)
-                .padding(if (detailed) 14.dp else 10.dp)
+                .padding(
+                    horizontal = if (detailed) 12.dp else 8.dp,
+                    vertical = if (detailed) 12.dp else 8.dp,
+                )
                 .clickable(actionStartActivity(WidgetDestination("usage").intent(context)))
         ) {
-            Caption(state.text("USAGE", "用量") + " · " + state.metric())
-            if (detailed || wide) {
-                Spacer(GlanceModifier.height(6.dp))
+            if (detailed) Caption(state.text("USAGE", "用量") + " · " + state.metric())
+            if (detailed && (wide || !largerText)) {
+                Spacer(GlanceModifier.height(4.dp))
                 Row(GlanceModifier.fillMaxWidth()) {
                     if (state.preferences.cursor) {
                         Column(GlanceModifier.defaultWeight()) {
                             Caption("Cursor Model")
                             Value(state.value(true), detailed)
+                            PoolProgress(state, true)
                         }
                     }
                     if (state.preferences.other) {
                         Column(GlanceModifier.defaultWeight()) {
                             Caption("Other Model")
                             Value(state.value(false), detailed)
+                            PoolProgress(state, false)
                         }
                     }
                 }
             } else {
-                if (state.preferences.cursor) CompactPool("Cursor Model", state.value(true))
-                if (state.preferences.other) CompactPool("Other Model", state.value(false))
+                if (state.preferences.cursor) {
+                    CompactPool("Cursor Model", state.value(true))
+                    if (detailed) PoolProgress(state, true)
+                }
+                if (state.preferences.other) {
+                    CompactPool("Other Model", state.value(false))
+                    if (detailed) PoolProgress(state, false)
+                }
             }
             Spacer(GlanceModifier.defaultWeight())
-            Caption(state.usageStatus(System.currentTimeMillis()))
+            Caption(
+                if (detailed) state.usageStatus(System.currentTimeMillis())
+                else state.compactUsageStatus(System.currentTimeMillis())
+            )
             if (detailed) {
-                if (wide && state.preferences.pace && state.connections.web) {
+                if (wide && !largerText && state.preferences.pace && state.connections.web) {
                     val pace = state.usage?.pace(System.currentTimeMillis())
                     val reset = state.usage?.cycleEnd
-                    if (pace != null) {
-                        Caption(
-                            state.text("Cycle target used", "周期目标已用") +
-                                " ${pace.targetUsed.toInt()}%" +
-                                if (pace.estimated) state.text(" · estimated", " · 估算") else ""
-                        )
+                    val parts = buildList {
+                        if (pace != null)
+                            add(
+                                state.text("Target used", "目标已用") +
+                                    " ${pace.targetUsed.toInt()}%" +
+                                    if (pace.estimated) " ~" else ""
+                            )
+                        if (reset != null && state.usage?.unlimited != true)
+                            add(
+                                state.text("Reset ", "重置 ") +
+                                    WidgetState.time(reset).substringBefore(' ')
+                            )
                     }
-                    if (reset != null && state.usage?.unlimited != true) {
-                        Caption(state.text("Reset ", "重置于 ") + WidgetState.time(reset))
-                    }
+                    if (parts.isNotEmpty()) Caption(parts.joinToString(" · "))
                 }
                 Refresh(state)
             }
@@ -149,24 +169,29 @@ class UsageWidget : CursorWidget() {
 class AgentsWidget : CursorWidget() {
     override val sizeMode =
         SizeMode.Responsive(
-            setOf(DpSize(160.dp, 180.dp), DpSize(320.dp, 180.dp), DpSize(320.dp, 260.dp))
+            setOf(DpSize(160.dp, 180.dp), DpSize(320.dp, 180.dp), DpSize(320.dp, 300.dp))
         )
 
     @Composable
     override fun Content(state: WidgetState) {
         val context = LocalContext.current
-        val rows = state.agentRows().take(if (LocalSize.current.height >= 260.dp) 3 else 1)
+        val largerText = context.resources.configuration.fontScale > 1.15f
+        val tall = LocalSize.current.height >= 300.dp
+        val wide = LocalSize.current.width >= 320.dp
+        val rows = state.agentRows().take(if (tall && !largerText) 3 else if (wide) 2 else 1)
         Column(
-            GlanceModifier.fillMaxSize().background(surface).cornerRadius(24.dp).padding(14.dp)
+            GlanceModifier.fillMaxSize()
+                .background(surface)
+                .cornerRadius(24.dp)
+                .padding(horizontal = 12.dp, vertical = if (largerText) 8.dp else 12.dp)
         ) {
             Text(
                 state.text("Recent Agents", "最近会话"),
-                GlanceModifier.fillMaxWidth()
-                    .height(32.dp)
-                    .clickable(actionStartActivity(WidgetDestination("inbox").intent(context))),
+                GlanceModifier.fillMaxWidth(),
                 style = TextStyle(color = ink, fontSize = 15.sp, fontWeight = FontWeight.Bold),
                 maxLines = 1,
             )
+            Spacer(GlanceModifier.height(4.dp))
             if (rows.isEmpty()) {
                 Text(
                     if (state.connections.api && state.agents != null)
@@ -180,29 +205,16 @@ class AgentsWidget : CursorWidget() {
                     style = TextStyle(color = ink, fontSize = 13.sp),
                     maxLines = 2,
                 )
+            } else if (wide && !tall) {
+                Row(GlanceModifier.fillMaxWidth()) {
+                    rows.forEachIndexed { index, agent ->
+                        if (index > 0) Spacer(GlanceModifier.width(6.dp))
+                        Column(GlanceModifier.defaultWeight()) { AgentRow(agent) }
+                    }
+                }
             } else {
                 rows.forEach { agent ->
-                    Column(
-                        GlanceModifier.fillMaxWidth()
-                            .height(52.dp)
-                            .background(tile)
-                            .cornerRadius(12.dp)
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                            .clickable(
-                                actionStartActivity(
-                                    (WidgetDestination.parse("detail", agent.id)
-                                            ?: WidgetDestination("inbox"))
-                                        .intent(context)
-                                )
-                            )
-                    ) {
-                        Text(
-                            agent.title,
-                            style = TextStyle(color = ink, fontSize = 14.sp),
-                            maxLines = 1,
-                        )
-                        Caption(agent.status)
-                    }
+                    AgentRow(agent)
                     Spacer(GlanceModifier.height(4.dp))
                 }
             }
@@ -255,6 +267,40 @@ class ActionsWidget : CursorWidget() {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AgentRow(agent: WidgetAgent) {
+    val context = LocalContext.current
+    Column(
+        GlanceModifier.fillMaxWidth()
+            .height(if (context.resources.configuration.fontScale > 1.15f) 64.dp else 52.dp)
+            .background(tile)
+            .cornerRadius(12.dp)
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+            .clickable(
+                actionStartActivity(
+                    (WidgetDestination.parse("detail", agent.id) ?: WidgetDestination("inbox"))
+                        .intent(context)
+                )
+            )
+    ) {
+        Text(agent.title, style = TextStyle(color = ink, fontSize = 14.sp), maxLines = 1)
+        Caption(agent.status)
+    }
+}
+
+@Composable
+private fun PoolProgress(state: WidgetState, cursor: Boolean) {
+    val value = state.usage?.value(cursor, state.preferences.remaining)
+    if (state.connections.web && state.usage?.unlimited == false && value != null) {
+        LinearProgressIndicator(
+            progress = (value / 100).toFloat(),
+            modifier = GlanceModifier.fillMaxWidth().height(4.dp).padding(end = 8.dp),
+            color = ink,
+            backgroundColor = ColorProvider(tile),
+        )
     }
 }
 
