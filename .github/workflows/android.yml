@@ -63,13 +63,14 @@ jobs:
           arch: x86_64
           disable-animations: true
           # The first run keeps the default verification display. The screenshot runs use
-          # 1080x2400 at 540 dpi (still 320 dp wide) and repeat in light and dark mode.
+          # 1080x1920 at 540 dpi (320 dp wide) and repeat in light and dark mode; WindowManager
+          # caps forced sizes at three times the 640 px skin, so a taller request has no effect.
           # Each line runs separately; leaf pull targets must not exist beforehand. The full
           # run's report is restored afterwards so device-reports keeps every test class.
           script: |
             ./gradlew :app:connectedDebugAndroidTest
             cp -r app/build/reports/androidTests app/build/full-device-reports
-            adb shell wm size 1080x2400
+            adb shell wm size 1080x1920
             adb shell wm density 540
             adb shell cmd uimode night no
             adb shell rm -rf /sdcard/cursor-android-qa-v2 /sdcard/cursor-android-widgets-qa

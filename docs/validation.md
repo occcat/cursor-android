@@ -36,7 +36,7 @@ implementation reaches main. Domain/SSL activation is not a successful site-cont
 | Documentation links/evidence/HTML/SVG | `python3 docs/scripts/check-docs.py` passed: 100 local references including native screenshot sources, immutable counts, JSON/SVG, duplicate IDs, JS syntax |
 | Android reviewed native/widget suite | Widget milestone `d310966`: 37 unit tests passed, debug lint reported zero errors/fatal findings, and the debug build passed; Reviewer independently verified the reports |
 | Android instrumentation | 11/11 instrumentation tests passed on the API 36 emulator, with zero failures/errors/skips; this includes the native suite and six widget tests |
-| Native screenshot review | Actual API 36 / 320 dp signed-out connections/usage and compact overlay captured; overlay uses synthetic 68/39 fixtures; no credentials or paid run |
+| Native screenshot review | Actual API 36 / 320 dp captures from the device job's `device-screens` artifact (see Cursor visual refresh below); overlay uses synthetic 68/39 fixtures; no credentials or paid run |
 | Live account API-key and web sign-in | Not run; network behavior uses MockWebServer fixtures, with no paid Agent runs |
 | Website build/tests | Widget showcase `f18299a`: 19 Node tests, syntax, offline build, and diff checks passed; Reviewer approved with no P0/P1 findings |
 | Website ego preview | Coordinator passed desktop/320 px EN/CN, persistence, metrics/scenarios/pool toggles, keyboard/focus, reduced motion, three widget families/sizes, title privacy, unlimited/stale states, and action destinations |
@@ -65,6 +65,28 @@ or behavior on vendor launchers. API 36 emulator coverage and synthetic widget h
 screenshots must not be described as the full device/account acceptance matrix.
 The tested Pixel Launcher labels compact Usage 2×2 to satisfy its minimum geometry;
 grid labels are hints, while the documented dp breakpoints define actual layouts.
+
+## Cursor visual refresh
+
+The warm light/dark redesign of the app, widgets, overlay, notification, website, and design
+documents was checked with these commands. Results are for the redesign branch.
+
+| Check | Result |
+| --- | --- |
+| `./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug` | 42 unit tests passed, including `CursorThemeTest` contrast and resource checks; lint 0 errors, 45 pre-existing warnings |
+| `./gradlew :app:lintRelease :app:assembleRelease` | Unsigned R8 build passed; lint 0 errors, 45 pre-existing warnings |
+| `node --test website/test/*.test.mjs`, `node --check website/src/app.mjs`, `node website/scripts/build.mjs --offline` | 19 tests, syntax check, and offline build passed |
+| Website headless Chrome review | No horizontal overflow at 320, 390, 768, and 1440 px in light and dark; theme color follows the scheme; reduced motion removes transitions |
+| Android checks run 37872252009 | Verify job passed; device job passed 11/11 tests on the default 320 × 640 mdpi display, then 8/8 native and widget tests in light and again in dark |
+| Native capture review | 1080 × 1920 px at 540 dpi (WindowManager caps forced sizes at three times the 640 px skin); README uses the dark run, the widget guide the light run |
+
+Capture notes. In the light run, SystemUI drew an oversized status icon over the clock and
+light navigation buttons on the light scrim, including over the launcher; the app had
+requested light bars and the dark run, after a real configuration change, was unaffected,
+so these are emulator artifacts after the runtime density change. The usage sheet opened
+and was asserted in the signed-out capture, but was not yet on screen when it was taken;
+the README image therefore shows the inbox capsule's unknown values. Not run: 200% text,
+TalkBack, landscape/split-screen, physical devices, and live accounts.
 
 Do not promote pending checks to passed based on source inspection, a mock, an accepted
 build request, or a test from the reference browser extension. Update this record with
