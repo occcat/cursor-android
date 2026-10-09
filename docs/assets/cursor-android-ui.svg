@@ -1,72 +1,73 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="680" viewBox="0 0 1280 680" role="img" aria-labelledby="title desc">
   <title id="title">Cursor Android usage capsule and notification design</title>
-  <desc id="desc">A dark Android screen shows a capsule with Cursor 68 percent and Other 39 percent remaining. An expanded usage sheet shows separate blue and gray bars. A notification drawer shows the same values. All values are fictional.</desc>
+  <desc id="desc">A dark Android screen shows a capsule with Cursor 68 percent and Other 39 percent remaining. An expanded usage sheet shows separate orange and gray bars. A notification drawer shows the same values. All values are fictional.</desc>
   <defs>
-    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#171815"/><stop offset="1" stop-color="#262722"/></linearGradient>
-    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse"><path d="M36 0H0V36" fill="none" stroke="#ffffff" stroke-opacity=".025"/></pattern>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#14120b"/><stop offset="1" stop-color="#1b1913"/></linearGradient>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse"><path d="M36 0H0V36" fill="none" stroke="#edecec" stroke-opacity=".025"/></pattern>
   </defs>
   <rect width="1280" height="680" rx="20" fill="url(#bg)"/>
   <rect width="1280" height="680" rx="20" fill="url(#grid)"/>
-  <g font-family="Arial, Helvetica, sans-serif" fill="#f0f0eb">
-    <text x="64" y="66" font-size="15" letter-spacing="3" fill="#a5a89c">CURSOR ANDROID / UI DESIGN</text>
-    <text x="64" y="131" font-size="40">Your agents. A quieter view.</text>
-    <text x="65" y="169" font-size="17" fill="#b6b8af">Two usage pools, shared across every surface.</text>
-    <rect x="64" y="217" width="406" height="76" rx="38" fill="#20221e" stroke="#41443b"/>
-    <circle cx="91" cy="255" r="5" fill="#81a1c1"/>
+  <g font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" fill="#edecec">
+    <text x="64" y="66" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="14" letter-spacing="2" fill="#969592">CURSOR ANDROID / UI DESIGN</text>
+    <text x="64" y="131" font-size="34" letter-spacing="-.6">Your agents. A quieter view.</text>
+    <text x="65" y="169" font-size="17" fill="#969592">Two usage pools, shared across every surface.</text>
+    <rect x="64" y="217" width="406" height="76" rx="38" fill="#1b1913" stroke="#2a2822"/>
+    <circle cx="91" cy="255" r="5" fill="#f54e00"/>
     <text x="106" y="263" font-size="23">Cursor 68%</text>
-    <text x="252" y="263" font-size="21" fill="#797c71">·</text>
-    <circle cx="280" cy="255" r="5" fill="#999c93"/>
+    <text x="252" y="263" font-size="21" fill="#6b6965">·</text>
+    <circle cx="280" cy="255" r="5" fill="#767470"/>
     <text x="295" y="263" font-size="23">Other 39%</text>
-    <text x="65" y="325" font-size="14" fill="#a5a89c">IN-APP CAPSULE · REMAINING</text>
-    <path d="M268 357V389H316" fill="none" stroke="#74796a" stroke-width="1.5"/>
-    <circle cx="316" cy="389" r="3" fill="#a5a89c"/>
+    <text x="65" y="325" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="13" letter-spacing="1.5" fill="#969592">IN-APP CAPSULE · REMAINING</text>
+    <path d="M268 357V389H316" fill="none" stroke="#3f3e38" stroke-width="1.5"/>
+    <circle cx="316" cy="389" r="3" fill="#f54e00"/>
     <text x="64" y="447" font-size="17">One snapshot. Clear limits.</text>
-    <text x="64" y="477" font-size="15" fill="#a5a89c">Unknown is not zero. Stale data stays labeled.</text>
-    <text x="64" y="502" font-size="15" fill="#a5a89c">Switch used / remaining everywhere at once.</text>
-    <text x="64" y="606" font-size="13" fill="#85897c">Fictional demo data · Independent community project</text>
-    <rect x="524" y="38" width="322" height="604" rx="42" fill="#080908" stroke="#52564b" stroke-width="2"/>
-    <rect x="534" y="48" width="302" height="584" rx="33" fill="#181a17"/>
+    <text x="64" y="477" font-size="15" fill="#969592">Unknown is not zero. Stale data stays labeled.</text>
+    <text x="64" y="502" font-size="15" fill="#969592">Switch used / remaining everywhere at once.</text>
+    <text x="64" y="606" font-size="13" fill="#969592">Fictional demo data · Independent community project</text>
+    <rect x="524" y="38" width="322" height="604" rx="42" fill="#2b2923" stroke="#3f3e38" stroke-width="2"/>
+    <rect x="534" y="48" width="302" height="584" rx="33" fill="#14120b"/>
     <text x="554" y="77" font-size="12">9:41</text>
-    <rect x="757" y="65" width="12" height="9" rx="2" fill="#eee"/>
-    <path d="M779 73V70M786 73V67M793 73V64" stroke="#eee" stroke-width="2"/>
-    <rect x="621" y="59" width="126" height="24" rx="12" fill="#080908"/>
-    <text x="554" y="122" font-size="24">Agents</text>
-    <text x="554" y="147" font-size="12" fill="#979b8e">Your work, wherever you are.</text>
-    <rect x="550" y="171" width="270" height="56" rx="14" fill="#23261f"/>
-    <circle cx="568" cy="190" r="4" fill="#9bad82"/>
-    <text x="580" y="194" font-size="12">Review the settings flow</text>
-    <text x="580" y="212" font-size="10" fill="#a0a694">Running · sample / mobile</text>
-    <path d="M534 263Q534 248 549 248H821Q836 248 836 263V599Q836 632 803 632H567Q534 632 534 599Z" fill="#232620"/>
-    <rect x="665" y="260" width="40" height="4" rx="2" fill="#5e6357"/>
-    <text x="554" y="300" font-size="19">Cursor Usage</text>
-    <text x="554" y="322" font-size="11" fill="#a0a694">This cycle · Remaining</text>
-    <circle cx="559" cy="357" r="4" fill="#81a1c1"/>
+    <rect x="757" y="65" width="12" height="9" rx="2" fill="#edecec"/>
+    <path d="M779 73V70M786 73V67M793 73V64" stroke="#edecec" stroke-width="2"/>
+    <rect x="621" y="59" width="126" height="24" rx="12" fill="#000"/>
+    <text x="554" y="122" font-size="24" letter-spacing="-.3">Agents</text>
+    <text x="554" y="147" font-size="12" fill="#969592">Your work, wherever you are.</text>
+    <rect x="550" y="171" width="270" height="56" rx="8" fill="#1b1913"/>
+    <circle cx="568" cy="190" r="3.5" fill="#f54e00"/>
+    <text x="580" y="194" font-size="12" font-weight="500">Review the settings flow</text>
+    <text x="580" y="212" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="10" fill="#969592">Running · sample / mobile</text>
+    <rect x="534" y="48" width="302" height="584" rx="33" fill="#000" fill-opacity=".32"/>
+    <path d="M534 264Q534 248 550 248H820Q836 248 836 264V599Q836 632 803 632H567Q534 632 534 599Z" fill="#14120b"/>
+    <rect x="665" y="260" width="40" height="4" rx="2" fill="#3f3e38"/>
+    <text x="554" y="300" font-size="19" letter-spacing="-.1">Cursor Usage</text>
+    <text x="554" y="322" font-size="11" fill="#969592">This cycle · Remaining</text>
+    <circle cx="559" cy="357" r="4" fill="#f54e00"/>
     <text x="570" y="362" font-size="13">Cursor Model</text>
-    <text x="804" y="362" text-anchor="end" font-size="24">68%</text>
-    <rect x="554" y="378" width="262" height="7" rx="3.5" fill="#41463b"/>
-    <rect x="554" y="378" width="178" height="7" rx="3.5" fill="#81a1c1"/>
-    <path d="M650 375V388" stroke="#f3f3ed" stroke-width="2"/>
-    <text x="554" y="409" font-size="11" fill="#a0a694">32% used · Slower than pace</text>
-    <circle cx="559" cy="454" r="4" fill="#a7aa9f"/>
+    <text x="804" y="362" text-anchor="end" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="22">68%</text>
+    <rect x="554" y="378" width="262" height="6" rx="3" fill="#26241e"/>
+    <rect x="554" y="378" width="178" height="6" rx="3" fill="#f54e00"/>
+    <path d="M650 375V387" stroke="#edecec" stroke-width="2"/>
+    <text x="554" y="409" font-size="11" fill="#969592">32% used · Slower than pace</text>
+    <circle cx="559" cy="454" r="4" fill="#767470"/>
     <text x="570" y="459" font-size="13">Other Model</text>
-    <text x="804" y="459" text-anchor="end" font-size="24">39%</text>
-    <rect x="554" y="475" width="262" height="7" rx="3.5" fill="#41463b"/>
-    <rect x="554" y="475" width="102" height="7" rx="3.5" fill="#a7aa9f"/>
-    <path d="M650 472V485" stroke="#f3f3ed" stroke-width="2"/>
-    <text x="554" y="506" font-size="11" fill="#a0a694">61% used · On pace</text>
-    <path d="M554 529H816" stroke="#3e4437"/>
-    <text x="554" y="553" font-size="11" fill="#b1b6a7">Resets Oct 31 · Updated just now</text>
-    <text x="554" y="574" font-size="10" fill="#919987">Sample cycle · Values shown for design review</text>
-    <rect x="643" y="612" width="84" height="4" rx="2" fill="#d1d5c9"/>
-    <text x="887" y="246" font-size="14" letter-spacing="1.5" fill="#a5a89c">NOTIFICATION DRAWER</text>
-    <rect x="880" y="272" width="342" height="177" rx="24" fill="#33362d" stroke="#53594a"/>
-    <path d="M902 291L911 297L902 304Z" fill="#e6e9df"/>
-    <text x="920" y="302" font-size="12" fill="#ccd1c1">Cursor Usage · Remaining</text>
+    <text x="804" y="459" text-anchor="end" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="22">39%</text>
+    <rect x="554" y="475" width="262" height="6" rx="3" fill="#26241e"/>
+    <rect x="554" y="475" width="102" height="6" rx="3" fill="#767470"/>
+    <path d="M650 472V484" stroke="#edecec" stroke-width="2"/>
+    <text x="554" y="506" font-size="11" fill="#969592">61% used · On pace</text>
+    <path d="M554 529H816" stroke="#2a2822"/>
+    <text x="554" y="553" font-size="11" fill="#969592">Resets Oct 31 · Updated just now</text>
+    <text x="554" y="574" font-size="10" fill="#969592">Sample cycle · Values shown for design review</text>
+    <rect x="643" y="612" width="84" height="4" rx="2" fill="#969592"/>
+    <text x="887" y="246" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="13" letter-spacing="1.5" fill="#969592">NOTIFICATION DRAWER</text>
+    <rect x="880" y="272" width="342" height="177" rx="24" fill="#1d1b15" stroke="#2a2822"/>
+    <path d="M902 291L911 297L902 304Z" fill="#f54e00"/>
+    <text x="920" y="302" font-size="12" fill="#969592">Cursor Usage · Remaining</text>
     <text x="902" y="338" font-size="20">Cursor 68% · Other 39%</text>
-    <text x="902" y="366" font-size="12" fill="#b0b7a4">Resets Oct 31 · Updated just now</text>
-    <text x="902" y="420" font-size="13" fill="#dce6ce">Refresh</text>
-    <text x="989" y="420" font-size="13" fill="#dce6ce">View usage</text>
-    <text x="887" y="482" font-size="13" fill="#a5a89c">The status bar shows a monochrome icon.</text>
-    <text x="887" y="504" font-size="13" fill="#a5a89c">The drawer carries the two values.</text>
+    <text x="902" y="366" font-size="12" fill="#969592">Resets Oct 31 · Updated just now</text>
+    <text x="902" y="420" font-size="13" font-weight="500">Refresh</text>
+    <text x="989" y="420" font-size="13" font-weight="500">View usage</text>
+    <text x="887" y="482" font-size="13" fill="#969592">The status bar shows a monochrome icon.</text>
+    <text x="887" y="504" font-size="13" fill="#969592">The drawer carries the two values.</text>
   </g>
 </svg>

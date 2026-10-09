@@ -5,11 +5,11 @@ import android.content.ComponentName
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import app.cursor.android.ui.CursorSecondaryButton
 import app.cursor.android.ui.label
 
 @Composable
@@ -24,7 +24,7 @@ fun WidgetPicker() {
                 ActionsWidgetReceiver::class.java to label("Add Actions", "添加操作"),
             )
             .forEach { (receiver, title) ->
-                OutlinedButton(
+                CursorSecondaryButton(
                     onClick = {
                         if (
                             !manager.isRequestPinAppWidgetSupported ||

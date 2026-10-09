@@ -7,23 +7,37 @@ The [interactive prototype](cursor-android-prototype.html) uses fictional data o
 
 ## Visual language
 
-Quiet neutral surfaces, restrained blue, generous spacing, and readable tabular
-numbers follow the Cursor Usage reference in `../grok-usage-floating`.
+Warm neutral surfaces, hairline dividers, one orange accent, regular-weight headings, and
+readable tabular numbers follow the visual language of [Cursor](https://cursor.com): colors,
+type rhythm, radii, and motion only. No Cursor logo, proprietary font, or site artwork is used.
+Light and dark both follow the system setting; there is no in-app theme switch.
 The Android implementation uses dp/sp, rather than copying browser CSS pixels.
 
 | Token | Light | Dark |
 | --- | --- | --- |
-| Surface | `#fcfcfc` | `#181818` |
-| Text | `#141414` | `#f0f0f0` |
-| Secondary | `#717171` | `#9a9a9a` |
-| Divider | `#e9e9e9` | `#292929` |
-| Cursor pool | `#81a1c1` | `#81a1c1` |
-| Other pool | Foreground at 60% blend | Foreground at 60% blend |
+| Background | `#f7f7f4` | `#14120b` |
+| Text | `#26251e` | `#edecec` |
+| Secondary text | `#676660` | `#969592` |
+| Card | `#f2f1ed` | `#1b1913` |
+| Raised (secondary buttons, tracks, widget tiles) | `#e6e5e0` | `#26241e` |
+| Divider | `#e2e2df` | `#2a2822` |
+| Accent (graphics, focus, busy bar) | `#f54e00` | `#f54e00` |
+| Accent text | `#c43e00` | `#f54e00` |
+| Cursor pool | `#f54e00` | `#f54e00` |
+| Other pool | `#82817c` | `#767470` |
+| Success | `#17775a` | `#3fb68b` |
 | Warning | `#a46700` | `#f1b467` |
-| Error | `#be1744` | `#e34671` |
+| Error | `#b8244a` | `#e5506f` |
+
+Buttons are pills: ink fill for the primary action, the raised tone for secondary actions.
+Cards are 8 dp with no shadow, inputs 8 dp, dialogs 12 dp, and sheets 16 dp at the top.
+Small section labels are monospace capitals. Color changes take 140 ms and progress changes
+250 ms with a spring-like ease; system animation scale and reduced motion are respected.
+The same tokens live in `CursorTheme.kt`, `res/values*/colors.xml`, and the website stylesheet.
 
 Pool identity colors stay fixed. Low quota, stale data, and errors use words/icons,
-not two indistinguishable red bars. Small body text must retain sufficient contrast.
+not two indistinguishable red bars. Small body text must retain sufficient contrast;
+`CursorThemeTest` checks text roles against AA and graphics against 3:1 in both themes.
 Support large type, TalkBack, dark mode, rotation, split-screen, and ≥48 dp touch targets.
 
 ## Capsule, details, and notification
@@ -39,7 +53,7 @@ At large font sizes, allow growth or two lines. An optional mini-bar variant is
 quota score. Tap opens details; drag must not accidentally activate a tap.
 
 A details sheet uses 16 dp padding and a tablet maximum around 400 dp. Each fixed slot
-shows full pool name, primary metric, secondary used value, an 8 dp rounded progress
+shows full pool name, primary metric, secondary used value, a 6 dp rounded progress
 bar, pace marker, and textual pace. The footer shows cycle/reset time in the local
 timezone, last successful update, freshness, and refresh action. Unknown pools retain
 their slot with `—`; both disabled hides the capsule entirely.

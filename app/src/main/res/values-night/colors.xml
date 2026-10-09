@@ -1,0 +1,7 @@
+<resources>
+    <color name="cursor_bg">#14120B</color>
+    <color name="cursor_fg">#EDECEC</color>
+    <color name="cursor_card">#1B1913</color>
+    <color name="cursor_text_secondary">#969592</color>
+    <color name="cursor_border02">#2A2822</color>
+</resources>

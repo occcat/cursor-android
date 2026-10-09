@@ -89,14 +89,17 @@ object UsageNotifications {
             if (usage?.pendingReset(System.currentTimeMillis()) == true)
                 context.getString(R.string.pending_reset)
             else ""
+        val accent = context.getColor(R.color.cursor_accent)
         val publicVersion =
             NotificationCompat.Builder(context, channel)
                 .setSmallIcon(R.drawable.ic_cursor)
+                .setColor(accent)
                 .setContentTitle("Cursor Android")
                 .setContentText(context.getString(R.string.private_notification))
                 .build()
         return NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_cursor)
+            .setColor(accent)
             .setContentTitle("Cursor Usage · $mode")
             .setContentText(values.joinToString(" · "))
             .setStyle(
