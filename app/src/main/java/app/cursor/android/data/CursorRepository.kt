@@ -357,66 +357,145 @@ class CursorRepository(
         repos: List<String>,
         model: String,
         environment: String,
-        plan: Boolean,
-        autoPr: Boolean,
     ): String {
         val id = "bc-${UUID.randomUUID()}"
-        persist(generation, "pendingCreate", buildJsonObject { put("id", id) }.toString())
+        val session = generation
         val body = buildJsonObject {
-            put("agentId", id)
-            put("prompt", buildJsonObject { put("text", prompt.trim()) })
-            if (model.isNotBlank()) put("model", buildJsonObject { put("id", model) })
-            if (environment.isNotBlank()) {
+            put("bcId", id)
+            put("prompt", prompt.trim())
+            if (model.isNotBlank()) {
                 put(
-                    "env",
-                    buildJsonObject {
-                        put("type", "cloud")
-                        put("name", environment)
-                    },
+                    "requestedModels",
+                    JsonArray(listOf(buildJsonObject { put("modelId", model) })),
                 )
-            } else if (repos.isNotEmpty()) {
-                put("repos", JsonArray(repos.map { buildJsonObject { put("url", it) } }))
             }
-            put("mode", if (plan) "plan" else "agent")
-            put("autoCreatePR", autoPr)
+            if (environment.isNotBlank()) {
+                put("environment", buildJsonObject { put("publicId", environment) })
+            } else if (repos.isNotEmpty()) {
+                put("repoUrl", repos.first())
+            }
+            put("expectedScope", "personal")
         }
         try {
-            api.request("POST", listOf("v1", "agents"), body)
+            authed(session) {
+                api.request(
+                    "POST",
+                    listOf("api", "auth", "startBackgroundComposerFromSnapshot"),
+                    body,
+                )
+            }
         } catch (exception: IOException) {
             if (exception is ApiFailure) throw exception
-            try {
-                api.request("GET", listOf("v1", "agents", id))
-            } catch (_: IOException) {
-                throw IOException("Creation outcome unknown; refresh agents before sending again")
-            }
+            runCatching { composer(id) }.onFailure { if (it is CancellationException) throw it }
+            throw IOException("Creation outcome unknown; refresh agents before sending again")
         }
         runCatching { refreshAgents() }.onFailure { if (it is CancellationException) throw it }
         return id
     }
 
     suspend fun followUp(agent: String, prompt: String) {
+        val session = generation
+        val body = buildJsonObject {
+            put("bcId", agent)
+            put("followup", prompt.trim())
+            put("followupMessage", prompt.trim())
+            put("followupId", "fu-${UUID.randomUUID()}")
+            put("expectedScope", "personal")
+        }
         try {
-            api.request(
-                "POST",
-                listOf("v1", "agents", agent, "runs"),
-                buildJsonObject { put("prompt", buildJsonObject { put("text", prompt.trim()) }) },
-            )
+            authed(session) {
+                api.request(
+                    "POST",
+                    listOf("api", "auth", "addAsyncFollowupBackgroundComposer"),
+                    body,
+                )
+            }
         } catch (exception: IOException) {
             if (exception is ApiFailure) throw exception
-            throw IOException("Send outcome unknown; refresh runs before sending again")
+            runCatching { composer(agent) }.onFailure { if (it is CancellationException) throw it }
+            throw IOException("Send outcome unknown; refresh the agent before sending again")
         }
     }
 
-    suspend fun action(agent: String, action: String, run: String? = null) {
-        val path = listOf("v1", "agents", agent)
-        when (action) {
-            "delete" -> api.request("DELETE", path)
-            "cancel" -> api.request("POST", path + listOf("runs", requireNotNull(run), "cancel"))
-            "archive",
-            "unarchive" -> api.request("POST", path + action)
-            else -> error("Unsupported action")
+    /** Returns false when a pause response cannot say whether the agent paused. */
+    suspend fun action(agent: String, action: String): Boolean {
+        val session = generation
+        val response =
+            when (action) {
+                "pause" ->
+                    authed(session) {
+                        api.request(
+                            "POST",
+                            listOf("api", "background-composer", "pause"),
+                            buildJsonObject { put("bcId", agent) },
+                        )
+                    }
+                "archive" ->
+                    authed(session) {
+                        api.request(
+                            "POST",
+                            listOf("api", "auth", "archiveBackgroundComposer"),
+                            buildJsonObject { put("bcId", agent) },
+                        )
+                    }
+                "unarchive" ->
+                    authed(session) {
+                        api.request(
+                            "POST",
+                            listOf("api", "auth", "archiveBackgroundComposer"),
+                            buildJsonObject {
+                                put("bcId", agent)
+                                put("unarchive", true)
+                            },
+                        )
+                    }
+                else -> error("Unsupported action")
+            }
+        runCatching { refreshAgents() }.onFailure { if (it is CancellationException) throw it }
+        return action != "pause" || pauseExpressed(response)
+    }
+
+    suspend fun saveEnvironment(id: String, environmentJson: JsonElement) {
+        val session = generation
+        authed(session) {
+            api.request(
+                "POST",
+                listOf("api", "background-composer", "set-personal-environment-json"),
+                buildJsonObject {
+                    put("publicId", id)
+                    put("environmentJson", environmentJson)
+                },
+            )
         }
-        refreshAgents()
+    }
+
+    suspend fun putSecret(name: String, value: String) {
+        val session = generation
+        authed(session) {
+            api.request(
+                "POST",
+                listOf("api", "background-composer", "create-background-composer-secret"),
+                buildJsonObject {
+                    put("name", name)
+                    put("value", value)
+                    put("redact", true)
+                },
+            )
+        }
+    }
+
+    suspend fun revokeSecret(name: String, id: String?) {
+        val session = generation
+        authed(session) {
+            api.request(
+                "POST",
+                listOf("api", "background-composer", "revoke-background-composer-secret"),
+                buildJsonObject {
+                    put("name", name)
+                    if (!id.isNullOrBlank()) put("id", id)
+                },
+            )
+        }
     }
 
     fun stream(agent: String, run: String): Flow<JsonObject> = channelFlow {
@@ -520,6 +599,12 @@ class CursorRepository(
         lock.withLock {
             if (generation == session) cache.put(CacheEntry(key, json, System.currentTimeMillis()))
         }
+}
+
+internal fun pauseExpressed(json: JsonObject): Boolean {
+    if (json.isEmpty()) return false
+    if (json.array("composers").isNotEmpty()) return true
+    return listOf("status", "paused", "composer", "bcId", "success").any { json.containsKey(it) }
 }
 
 internal fun normalizeComposer(id: String, root: JsonObject): JsonObject {

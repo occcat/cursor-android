@@ -594,8 +594,6 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
     var repository by rememberSaveable { mutableStateOf("") }
     var selectedModel by rememberSaveable { mutableStateOf("") }
     var environment by rememberSaveable { mutableStateOf("") }
-    var plan by rememberSaveable { mutableStateOf(false) }
-    var autoPr by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { model.catalog() }
     Column(
         Modifier.padding(20.dp).verticalScroll(rememberScrollState()),
@@ -673,10 +671,6 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
                 )
             }
         }
-        Toggle(label("Plan before implementing", "先制定计划"), plan) { plan = it }
-        Toggle(label("Create a pull request automatically", "自动创建 Pull Request"), autoPr) {
-            autoPr = it
-        }
         CursorButton(
             onClick = {
                 model.create(
@@ -684,8 +678,6 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
                     repository.lines().map(String::trim).filter(String::isNotEmpty),
                     selectedModel,
                     environment,
-                    plan,
-                    autoPr,
                     complete,
                 )
             },
@@ -750,6 +742,22 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel) {
                     },
                     label = label("Artifacts", "产物"),
                 )
+                if (agent?.string("status") !in listOf(
+                        "FINISHED",
+                        "ERROR",
+                        "FAILED",
+                        "EXPIRED",
+                        "CANCELLED",
+                        "ARCHIVED",
+                    )
+                ) {
+                    CursorActionChip(
+                        onClick = { if (!state.local.pauseUnavailable) confirm = "pause" },
+                        label =
+                            if (state.local.pauseUnavailable) label("Pause unavailable", "无法暂停")
+                            else label("Pause", "暂停"),
+                    )
+                }
                 CursorActionChip(
                     onClick = {
                         confirm =
@@ -758,6 +766,15 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel) {
                     label =
                         if (agent?.string("status") == "ARCHIVED") label("Restore", "恢复")
                         else label("Archive", "归档"),
+                )
+            }
+            if (state.local.pauseUnavailable) {
+                Spacer(Modifier.height(8.dp))
+                Note(
+                    label(
+                        "This response cannot pause the agent.",
+                        "这次返回无法表示暂停。",
+                    )
                 )
             }
         }
@@ -799,12 +816,7 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel) {
                     model.followUp(id, followUp)
                     followUp = ""
                 },
-                enabled =
-                    followUp.isNotBlank() &&
-                        !state.local.busy &&
-                        state.local.runs.none {
-                            it.string("status") in listOf("CREATING", "RUNNING")
-                        },
+                enabled = followUp.isNotBlank() && !state.local.busy,
             ) {
                 Text(label("Send follow-up", "发送追问"))
             }
@@ -831,6 +843,7 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel) {
             text = {
                 Text(
                     when (confirm) {
+                        "pause" -> label("Pause this agent?", "暂停此 Agent？")
                         "archive" -> label("Archive this agent?", "归档此 Agent？")
                         else -> label("Restore this agent?", "恢复此 Agent？")
                     }
@@ -841,7 +854,7 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel) {
                     onClick = {
                         val action = confirm ?: return@CursorTextButton
                         confirm = null
-                        model.agentAction(id, action, null) {}
+                        model.agentAction(id, action) {}
                     },
                     tone = CursorTone.Default,
                 ) {
@@ -1243,14 +1256,7 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
         )
         CursorButton(
             onClick = {
-                model.secret(
-                    id,
-                    secretName,
-                    buildJsonObject {
-                        put("value", secretValue)
-                        put("type", "runtime_secret")
-                    },
-                )
+                model.secret(id, secretName, secretValue)
                 secretName = ""
                 secretValue = ""
             },
@@ -1295,14 +1301,12 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
     if (pendingDelete != null)
         CursorAlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text(label("Delete secret version?", "删除密钥版本？")) },
+            title = { Text(label("Revoke secret?", "撤销密钥？")) },
             text = { Text(pendingDelete?.string("name").orEmpty()) },
             confirmButton = {
                 CursorTextButton(
                     onClick = {
-                        pendingDelete?.let {
-                            model.secret(id, it.string("name"), null, it.string("id"))
-                        }
+                        pendingDelete?.let { model.secret(id, it.string("name"), null) }
                         pendingDelete = null
                     },
                     tone = CursorTone.Danger,

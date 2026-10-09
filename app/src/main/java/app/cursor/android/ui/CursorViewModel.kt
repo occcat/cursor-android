@@ -86,17 +86,17 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
         repositories: List<String>,
         model: String,
         environment: String,
-        plan: Boolean,
-        autoPr: Boolean,
         complete: (String) -> Unit,
     ) = action {
-        val id = repository.create(prompt, repositories, model, environment, plan, autoPr)
+        val id = repository.create(prompt, repositories, model, environment)
         complete(id)
     }
 
     fun detail(id: String) = action {
         streaming?.cancel()
-        local.update { it.copy(detail = null, runs = emptyList(), streamText = "") }
+        local.update {
+            it.copy(detail = null, runs = emptyList(), streamText = "", pauseUnavailable = false)
+        }
         val detail = repository.composer(id)
         local.update { it.copy(detail = detail, streamText = "") }
     }
@@ -140,13 +140,18 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
 
     fun followUp(id: String, text: String) = action {
         repository.followUp(id, text)
-        val runs = repository.cachedResource(listOf("agents", id, "runs"))
-        local.update { it.copy(runs = runs.items(), streamText = "") }
-        runs.items().firstOrNull()?.let { watch(id, it.string("id")) }
+        val detail = repository.composer(id)
+        local.update { it.copy(detail = detail, streamText = "") }
     }
 
-    fun agentAction(id: String, action: String, run: String?, complete: () -> Unit) = action {
-        repository.action(id, action, run)
+    fun agentAction(id: String, action: String, complete: () -> Unit) = action {
+        val expressed = repository.action(id, action)
+        if (action == "pause" && !expressed) {
+            local.update { it.copy(pauseUnavailable = true) }
+        } else {
+            val detail = repository.composer(id)
+            local.update { it.copy(detail = detail, pauseUnavailable = false) }
+        }
         complete()
     }
 
@@ -177,26 +182,25 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
         require(local.value.environment?.string("publicId") == id) {
             "Reload this environment before saving"
         }
-        repository.api.request("PATCH", listOf("v1", "environments", id), body)
-        val value = repository.cachedResource(listOf("environments", id))
+        val configuration = body["environmentJson"] ?: body
+        repository.saveEnvironment(id, configuration)
+        val value = repository.environment(id)
         local.update { it.copy(environment = value) }
     }
 
-    fun secret(id: String, name: String, body: JsonObject?, version: String? = null) = action {
+    fun secret(id: String, name: String, value: String?) = action {
         require(local.value.environment?.string("publicId") == id) {
             "Reload this environment before saving"
         }
-        if (body != null) {
+        if (value != null) {
             require(local.value.secrets.none { it.string("name") == name }) {
                 "A secret with this name exists. Use Cursor Web to rotate an existing secret."
             }
+            repository.putSecret(name, value)
+        } else {
+            val existing = local.value.secrets.firstOrNull { it.string("name") == name }
+            repository.revokeSecret(name, existing?.string("id"))
         }
-        repository.api.request(
-            if (body == null) "DELETE" else "PUT",
-            listOf("v1", "environments", id, "secrets", name),
-            body,
-            if (version == null) emptyMap() else mapOf("id" to version),
-        )
         val secrets = repository.secrets(id)
         local.update { it.copy(secrets = secrets.array("secrets")) }
     }
@@ -239,6 +243,7 @@ data class LocalState(
     val environment: JsonObject? = null,
     val webSettings: JsonObject? = null,
     val secrets: List<JsonObject> = emptyList(),
+    val pauseUnavailable: Boolean = false,
 )
 
 internal fun decodeArtifact(content: String): String {

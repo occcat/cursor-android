@@ -130,7 +130,7 @@ class ViewModelTest {
                 .setBody("""{"secrets":[{"name":"TOKEN","id":"version","value":"hidden"}]}""")
         )
         model.environment("a").join()
-        model.secret("a", "TOKEN", buildJsonObject { put("value", "replacement") }).join()
+        model.secret("a", "TOKEN", "replacement").join()
         assertEquals(2, server.requestCount)
         assertTrue(
             withTimeout(5_000) {

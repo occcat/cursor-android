@@ -20,6 +20,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -169,6 +170,58 @@ class RepositoryTest {
         assertTrue(body.contains("last_message_activity_at_ms_offset"))
         assertFalse(body.contains("nextCursor"))
         assertFalse(body.contains("\"items\""))
+    }
+
+    @Test
+    fun writesUseWebFieldsAndDoNotRetryAfterTimeout() = runTest {
+        server.enqueue(MockResponse().setBody("{}"))
+        server.enqueue(MockResponse().setBody("""{"composers":[]}"""))
+        repository.create("build it", listOf("https://github.com/a/b"), "gpt", "")
+        val created = server.takeRequest()
+        assertEquals("POST", created.method)
+        assertEquals("/api/auth/startBackgroundComposerFromSnapshot", created.path)
+        val body = created.body.readUtf8()
+        assertTrue(body.contains("\"bcId\""))
+        assertTrue(body.contains("\"prompt\":\"build it\""))
+        assertTrue(body.contains("\"repoUrl\":\"https://github.com/a/b\""))
+        assertTrue(body.contains("\"modelId\":\"gpt\""))
+        assertTrue(body.contains("expectedScope"))
+        assertFalse(body.contains("\"text\""))
+        assertFalse(body.contains("autoCreatePR"))
+        assertFalse(body.contains("\"env\""))
+        assertFalse(body.contains("\"mode\""))
+        assertNull(created.getHeader("Authorization"))
+        server.takeRequest()
+
+        val beforeFollowUp = server.requestCount
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
+        server.enqueue(MockResponse().setBody("""{"composers":[{"bcId":"bc"}]}"""))
+        val error = runCatching { repository.followUp("bc", "next step") }.exceptionOrNull()
+        assertTrue(error is java.io.IOException)
+        assertTrue(error !is app.cursor.android.data.ApiFailure)
+        assertEquals(beforeFollowUp + 2, server.requestCount)
+        assertEquals(
+            "/api/auth/addAsyncFollowupBackgroundComposer",
+            server.takeRequest().path,
+        )
+        assertEquals("/api/background-composer/get-detailed-composer", server.takeRequest().path)
+
+        server.enqueue(MockResponse().setBody("{}"))
+        server.enqueue(MockResponse().setBody("""{"composers":[]}"""))
+        assertFalse(repository.action("bc", "pause"))
+        val pause = server.takeRequest()
+        assertEquals("/api/background-composer/pause", pause.path)
+        val pauseBody = pause.body.readUtf8()
+        assertTrue(pauseBody.contains("\"bcId\":\"bc\""))
+        assertFalse(pauseBody.contains("cancel"))
+        server.takeRequest()
+
+        server.enqueue(MockResponse().setBody("""{"bcId":"bc"}"""))
+        server.enqueue(MockResponse().setBody("""{"composers":[]}"""))
+        assertTrue(repository.action("bc", "unarchive"))
+        val restore = server.takeRequest()
+        assertEquals("/api/auth/archiveBackgroundComposer", restore.path)
+        assertTrue(restore.body.readUtf8().contains("\"unarchive\":true"))
     }
 
     @Test
