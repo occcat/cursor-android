@@ -8,12 +8,12 @@
         <style>
             :root {
                 font-family: Arial, Helvetica, sans-serif;
-                color: #f0f0eb;
-                background: #141612;
-                --muted: #a5ab9c;
-                --line: #383d32;
-                --panel: #22261e;
-                --blue: #81a1c1;
+                color: #edecec;
+                background: #14120b;
+                --muted: #969592;
+                --line: #2a2822;
+                --panel: #1b1913;
+                --accent: #f54e00;
             }
             * {
                 box-sizing: border-box;
@@ -42,13 +42,13 @@
             }
             button:hover,
             select:hover {
-                background: #333a2b;
+                background: #26241e;
             }
             button:focus-visible,
             select:focus-visible,
             a:focus-visible,
             input:focus-visible {
-                outline: 2px solid var(--blue);
+                outline: 2px solid var(--accent);
                 outline-offset: 4px;
             }
             a {
@@ -56,9 +56,9 @@
                 text-underline-offset: 4px;
             }
             button[aria-pressed="true"] {
-                background: #e4e9d8;
-                color: #20241b;
-                border-color: #e4e9d8;
+                background: #edecec;
+                color: #14120b;
+                border-color: #edecec;
             }
             [hidden] {
                 display: none !important;
@@ -108,7 +108,7 @@
                 max-width: 600px;
             }
             .lead {
-                color: #c0c6b6;
+                color: #969592;
                 font-size: 18px;
                 line-height: 1.6;
                 max-width: 480px;
@@ -130,13 +130,13 @@
                 line-height: 1.6;
             }
             .notes b {
-                color: #e7ebdf;
+                color: #edecec;
                 font-weight: 400;
             }
             .phone {
                 min-width: 0;
-                background: #181b15;
-                border: 1px solid #53594b;
+                background: #14120b;
+                border: 1px solid #3f3e38;
                 border-radius: 40px;
                 padding: 12px;
                 box-shadow: 0 30px 60px #0005;
@@ -205,18 +205,18 @@
                 gap: 10px;
                 font-size: 14px;
                 font-variant-numeric: tabular-nums;
-                background: #282d23;
+                background: #26241e;
             }
             .dot {
                 display: inline-block;
                 width: 6px;
                 height: 6px;
                 border-radius: 50%;
-                background: var(--blue);
+                background: var(--accent);
                 margin-right: 5px;
             }
             .dot.other {
-                background: #a0a698;
+                background: #767470;
             }
             .row {
                 padding: 17px 0;
@@ -232,7 +232,7 @@
                 font-size: 12px;
             }
             .running {
-                color: #b4c797;
+                color: #f54e00;
                 font-size: 12px;
             }
             .card {
@@ -266,22 +266,22 @@
                 height: 8px;
                 border-radius: 4px;
                 position: relative;
-                background: #414938;
+                background: #26241e;
             }
             .fill {
                 height: 100%;
                 border-radius: 4px;
-                background: var(--blue);
+                background: var(--accent);
             }
             .pool.other .fill {
-                background: #a0a698;
+                background: #767470;
             }
             .marker {
                 position: absolute;
                 width: 2px;
                 height: 14px;
                 top: -3px;
-                background: #edf0e8;
+                background: #edecec;
             }
             .meta {
                 color: var(--muted);
@@ -290,10 +290,10 @@
                 line-height: 1.5;
             }
             .notice {
-                border-left: 2px solid #c8ad70;
+                border-left: 2px solid #f1b467;
                 padding: 0 0 0 12px;
                 font-size: 12px;
-                color: #d0c6af;
+                color: #edecec;
                 line-height: 1.6;
                 margin: 15px 0;
             }
@@ -309,7 +309,7 @@
             .setting input {
                 width: 22px;
                 height: 22px;
-                accent-color: var(--blue);
+                accent-color: var(--accent);
             }
             .segment {
                 display: flex;
@@ -334,26 +334,26 @@
                 background: transparent;
             }
             .appnav button[aria-pressed="true"] {
-                color: #e6edd9;
-                background: #2c3325;
+                color: #edecec;
+                background: #26241e;
             }
             .home {
                 width: 90px;
                 height: 4px;
-                background: #cbd2bf;
+                background: #969592;
                 border-radius: 3px;
                 margin: 16px auto 4px;
             }
             .notification {
-                background: #363e2c;
-                border-color: #4e5a40;
+                background: #1d1b15;
+                border-color: #2a2822;
             }
             .notification h3 {
                 font-size: 18px;
                 line-height: 1.4;
             }
             .notification small {
-                color: #bac7a6;
+                color: #969592;
             }
             .notification button {
                 background: transparent;
@@ -369,8 +369,8 @@
             }
             dialog {
                 color: inherit;
-                border: 1px solid #4d5743;
-                background: #23291d;
+                border: 1px solid #2a2822;
+                background: #1b1913;
                 border-radius: 24px;
                 width: min(380px, calc(100% - 24px));
                 padding: 24px;
@@ -397,8 +397,8 @@
                 left: 50%;
                 transform: translateX(-50%);
                 width: calc(100% - 32px);
-                background: #e4e9d8;
-                color: #1e2516;
+                background: #edecec;
+                color: #14120b;
                 padding: 15px 20px;
                 border-radius: 10px;
                 font-size: 14px;

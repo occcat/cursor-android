@@ -71,7 +71,8 @@ GitHub Releases. No package version is invented by the website.
 [static-builds]: https://developers.cloudflare.com/pages/framework-guides/deploy-anything/
 - [Cloudflare deploy hooks](https://developers.cloudflare.com/pages/configuration/deploy-hooks/)
 - [Cloudflare custom domains](https://developers.cloudflare.com/pages/configuration/custom-domains/)
-- [Cursor](https://cursor.com/home) for the warm dark visual palette.
+- [Cursor](https://cursor.com/home) for the warm neutral light and dark palettes, which follow
+  the system color scheme.
 - [Vibe Island](https://vibeisland.app) for the product-preview-led content hierarchy.
 
 This is an independent community project, without Cursor or Anysphere affiliation. The site uses
