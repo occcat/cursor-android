@@ -94,6 +94,23 @@ class RepositoryTest {
     }
 
     @Test
+    fun me500AndNonObjectBodyKeepCookie() = runTest {
+        val local = signedInRepository(MemoryMigration(true))
+        cache.put(CacheEntry("usage", "{\"cursorUsed\":32.0}", 1))
+        server.enqueue(MockResponse().setResponseCode(500))
+        local.restore()
+        assertEquals("session=fixture", credentials.read("cookie"))
+        assertEquals("{\"cursorUsed\":32.0}", cache.get("usage")!!.json)
+        assertEquals(true, local.webConnected)
+
+        server.enqueue(MockResponse().setResponseCode(200).setBody("[]"))
+        local.restore()
+        assertEquals("session=fixture", credentials.read("cookie"))
+        assertEquals("{\"cursorUsed\":32.0}", cache.get("usage")!!.json)
+        assertEquals(true, local.webConnected)
+    }
+
+    @Test
     fun me401DeletesCookieAnd403DoesNot() = runTest {
         val migration = MemoryMigration()
         val local = signedInRepository(migration)

@@ -176,7 +176,7 @@ class CursorApi(
         return call.await().use { response ->
             val text = withContext(Dispatchers.IO) { response.body?.string().orEmpty() }
             if (!response.isSuccessful) throw failure(response, text)
-            if (text.isBlank()) JsonObject(emptyMap()) else Json.parseToJsonElement(text).jsonObject
+            jsonObjectOrFailure(response.code, text)
         }
     }
 
@@ -231,6 +231,13 @@ class CursorApi(
 
     private fun sameOrigin(url: HttpUrl): Boolean =
         cookieAllowed(url, webBase, allowConfiguredOrigin)
+
+    private fun jsonObjectOrFailure(status: Int, text: String): JsonObject {
+        if (text.isBlank()) return JsonObject(emptyMap())
+        val element = runCatching { Json.parseToJsonElement(text) }.getOrNull()
+        if (element is JsonObject) return element
+        throw ApiFailure(status, "invalid_body")
+    }
 
     private fun failure(response: Response, body: String): ApiFailure {
         val error =

@@ -66,8 +66,8 @@ class CursorRepository(
         get() = connectionState.value.web
 
     /**
-     * First launch after this upgrade drops any API key, clears remote v1 cache, and
-     * keeps a cookie only when GET /api/auth/me returns 200.
+     * First launch after this upgrade drops any API key and clears remote v1 cache.
+     * 200 signs in. 401 deletes the cookie. Every other me result keeps it.
      */
     suspend fun restore() {
         val session = generation
@@ -90,12 +90,18 @@ class CursorRepository(
             if (generation == session) connectionState.value = Connections(true)
         } catch (failure: ApiFailure) {
             if (failure.status == 401) expire(session)
-            else if (failure.status != 403) throw failure
-            else if (generation == session) connectionState.value = Connections(true)
+            else if (failure.status == 403) {
+                if (generation == session) connectionState.value = Connections(true)
+            } else keepCachedSession(session, upgrading)
         } catch (_: IOException) {
-            val stale = upgrading || cache.get("usage") != null || cache.get("identity") != null
-            if (generation == session) connectionState.value = Connections(stale)
+            keepCachedSession(session, upgrading)
         }
+    }
+
+    /** 429, 500, and a 200 body that is not an object stay signed in like a network failure. */
+    private suspend fun keepCachedSession(session: Long, upgrading: Boolean) {
+        val stale = upgrading || cache.get("usage") != null || cache.get("identity") != null
+        if (generation == session) connectionState.value = Connections(stale)
     }
 
     suspend fun connectWeb(cookie: String) {

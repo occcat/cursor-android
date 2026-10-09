@@ -27,6 +27,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -48,7 +49,15 @@ class CursorApplication : Application(), Configuration.Provider {
         UsageNotifications.createChannels(this)
         UsageSyncWorker.schedule(this)
         WidgetUpdates.observe(this)
-        appScope.launch { repository.restore() }
+        appScope.launch {
+            try {
+                repository.restore()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // A failed cold start must not kill the process.
+            }
+        }
     }
 }
 
