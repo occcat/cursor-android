@@ -1,5 +1,8 @@
 <resources>
     <color name="cursor_bg">#F7F7F4</color>
     <color name="cursor_fg">#26251E</color>
+    <color name="cursor_card">#F2F1ED</color>
     <color name="cursor_text_secondary">#676660</color>
+    <color name="cursor_border02">#E2E2DF</color>
+    <color name="cursor_accent">#F54E00</color>
 </resources>

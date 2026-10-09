@@ -2,7 +2,7 @@ package app.cursor.android.system
 
 import android.app.Service
 import android.content.Intent
-import android.graphics.Color
+import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.IBinder
@@ -14,6 +14,7 @@ import android.view.WindowManager
 import android.widget.TextView
 import app.cursor.android.CursorApplication
 import app.cursor.android.MainActivity
+import app.cursor.android.R
 import app.cursor.android.data.Preferences
 import app.cursor.android.ui.usageValue
 import kotlin.math.abs
@@ -64,19 +65,14 @@ class UsageOverlayService : Service() {
                 textSize = 13f
                 minHeight = (48 * density).toInt()
                 setSingleLine(true)
-                setTextColor(Color.rgb(240, 240, 240))
+                fontFeatureSettings = "tnum"
                 setPadding(
                     (16 * density).toInt(),
                     (14 * density).toInt(),
                     (16 * density).toInt(),
                     (14 * density).toInt(),
                 )
-                background =
-                    GradientDrawable().apply {
-                        setColor(Color.rgb(24, 24, 24))
-                        cornerRadius = 28 * density
-                        setStroke((density).toInt().coerceAtLeast(1), Color.rgb(75, 75, 75))
-                    }
+                paint(this)
                 contentDescription = "Cursor Usage"
                 setOnClickListener {
                     startActivity(
@@ -199,6 +195,23 @@ class UsageOverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        capsule?.let(::paint)
+    }
+
+    /** Services survive theme changes, so the capsule repaints from day or night resources. */
+    private fun paint(view: TextView) {
+        val density = resources.displayMetrics.density
+        view.setTextColor(getColor(R.color.cursor_fg))
+        view.background =
+            GradientDrawable().apply {
+                setColor(getColor(R.color.cursor_card))
+                cornerRadius = 28 * density
+                setStroke(density.toInt().coerceAtLeast(1), getColor(R.color.cursor_border02))
+            }
+    }
 
     override fun onDestroy() {
         scope.cancel()

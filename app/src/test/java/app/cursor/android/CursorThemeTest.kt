@@ -59,7 +59,10 @@ class CursorThemeTest {
             mapOf(
                 "cursor_bg" to CursorColors::bg,
                 "cursor_fg" to CursorColors::fg,
+                "cursor_card" to CursorColors::card,
                 "cursor_text_secondary" to CursorColors::textSecondary,
+                "cursor_border02" to CursorColors::border02,
+                "cursor_accent" to CursorColors::accent,
             )
         listOf("values" to CursorColors.light, "values-night" to CursorColors.dark).forEach {
             (folder, colors) ->
