@@ -778,6 +778,30 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel) {
                 )
             }
         }
+        if (state.local.streamText.isNotBlank())
+            item {
+                CursorCard(Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            label("Conversation", "对话"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CursorTheme.colors.accentText,
+                        )
+                        SelectionContainer {
+                            Text(
+                                state.local.streamText,
+                                style =
+                                    MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = FontFamily.Monospace
+                                    ),
+                            )
+                        }
+                    }
+                }
+            }
         if (showArtifacts) {
             items(state.local.artifacts) { artifact ->
                 val title =

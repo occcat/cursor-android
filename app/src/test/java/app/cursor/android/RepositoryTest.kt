@@ -275,33 +275,30 @@ class RepositoryTest {
     }
 
     @Test
-    fun stream410FetchesFinalRunWithoutReplayingOldStream() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(410).setBody("""{"error":{"code":"stream_expired"}}""")
-        )
-        server.enqueue(
-            MockResponse().setBody("""{"id":"r","status":"FINISHED","result":"Final"}""")
-        )
-        val values = repository.stream("a", "r").toList()
-        assertEquals("Final", values.last().string("text"))
-        assertEquals(2, server.requestCount)
-        server.takeRequest()
-        assertEquals("/v1/agents/a/runs/r", server.takeRequest().path)
-    }
+    fun conversationAppendsOnceAndResumesFromOffset() = runTest {
+        val first =
+            app.cursor.android.data.interactionFrame("off-1", "Hello") +
+                app.cursor.android.data.interactionFrame("off-1", "Hello") +
+                app.cursor.android.data.interactionFrame("off-2", " world") +
+                app.cursor.android.data.endFrame()
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(first)))
+        val values = repository.conversation("bc-1").toList()
+        assertEquals("Hello world", values.last().string("text"))
+        val cached = cache.get("conversation/bc-1")!!.json
+        assertTrue(cached.contains("off-2"))
+        assertFalse(cached.contains("session=fixture"))
+        val opened = server.takeRequest()
+        assertTrue(opened.path!!.endsWith("StreamConversation"))
+        assertNull(opened.getHeader("Authorization"))
 
-    @Test
-    fun streamDuplicateEventsDoNotDuplicateTextAndCursorPersistsAfterProcessing() = runTest {
-        server.enqueue(
-            MockResponse()
-                .setBody(
-                    "id: one\nevent: assistant\ndata: {\"text\":\"Hello\"}\n\n" +
-                        "id: one\nevent: assistant\ndata: {\"text\":\"Hello\"}\n\n" +
-                        "id: end\nevent: result\ndata: {\"text\":\"Hello\"}\n\n" +
-                        "id: end\nevent: done\ndata: {}\n\n"
-                )
-        )
-        assertEquals("Hello", repository.stream("a", "r").toList().last().string("text"))
-        assertTrue(cache.get("stream/a/r")!!.json.contains("end"))
+        val more =
+            app.cursor.android.data.interactionFrame("off-3", "!") +
+                app.cursor.android.data.endFrame()
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(more)))
+        assertEquals("Hello world!", repository.conversation("bc-1").toList().last().string("text"))
+        val resumed = server.takeRequest().body.readByteArray().toString(Charsets.UTF_8)
+        assertTrue(resumed.contains("off-2"))
+        assertTrue(resumed.contains("bc-1"))
     }
 
     @Test
@@ -322,11 +319,13 @@ class RepositoryTest {
     }
 
     @Test
-    fun streamErrorDoesNotAppearAsSuccessfulCompletion() = runTest {
-        server.enqueue(
-            MockResponse().setBody("event: error\ndata: {\"code\":\"usage_limit_exceeded\"}\n\n")
-        )
-        val error = runCatching { repository.stream("a", "r").toList() }.exceptionOrNull()
+    fun conversationErrorDoesNotAppearAsSuccessfulCompletion() = runTest {
+        val bytes =
+            app.cursor.android.data.endFrame(
+                """{"error":{"code":"usage_limit_exceeded"}}"""
+            )
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(bytes)))
+        val error = runCatching { repository.conversation("bc").toList() }.exceptionOrNull()
         assertEquals("usage_limit_exceeded", (error as app.cursor.android.data.ApiFailure).code)
     }
 

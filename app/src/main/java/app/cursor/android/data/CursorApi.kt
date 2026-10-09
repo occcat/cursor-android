@@ -27,6 +27,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okio.BufferedSource
 
 class ApiFailure(val status: Int, val code: String, val retryAfter: String? = null) :
     IOException("HTTP $status · $code")
@@ -77,20 +78,27 @@ class CursorApi(
         }
     }
 
-    suspend fun stream(
-        agentId: String,
-        runId: String,
-        lastId: String?,
-        onEvent: suspend (SseEvent) -> Unit,
+    suspend fun conversation(
+        bcId: String,
+        offsetKey: String?,
+        onUpdate: suspend (ConversationUpdate) -> Unit,
+    ) {
+        try {
+            openConversation(bcId, offsetKey, onUpdate)
+        } catch (failure: ApiFailure) {
+            if (failure.code != "invalid_csrf_token") throw failure
+            refreshCsrf(null)
+            openConversation(bcId, offsetKey, onUpdate)
+        }
+    }
+
+    private suspend fun openConversation(
+        bcId: String,
+        offsetKey: String?,
+        onUpdate: suspend (ConversationUpdate) -> Unit,
     ) =
         withContext(Dispatchers.IO) {
-            val request =
-                build("GET", listOf("v1", "agents", agentId, "runs", runId, "stream"))
-                    .newBuilder()
-                    .header("Accept", "text/event-stream")
-                    .apply { if (!lastId.isNullOrBlank()) header("Last-Event-ID", lastId) }
-                    .build()
-            val call = client.newCall(request)
+            val call = client.newCall(conversationRequest(bcId, offsetKey))
             val cancellation =
                 CoroutineScope(kotlinx.coroutines.currentCoroutineContext()).launch(
                     Dispatchers.Unconfined
@@ -106,14 +114,7 @@ class CursorApi(
                     if (!response.isSuccessful)
                         throw failure(response, response.body?.string().orEmpty())
                     val source = response.body?.source() ?: throw IOException("Empty stream")
-                    val parser = SseParser()
-                    while (!source.exhausted()) {
-                        val event = parser.line(source.readUtf8Line() ?: break)
-                        if (event != null) {
-                            onEvent(event)
-                            if (event.type == "done") break
-                        }
-                    }
+                    readConversation(source, onUpdate)
                 }
             } catch (failure: IOException) {
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
@@ -123,6 +124,46 @@ class CursorApi(
                 call.cancel()
             }
         }
+
+    private suspend fun readConversation(
+        source: BufferedSource,
+        onUpdate: suspend (ConversationUpdate) -> Unit,
+    ) {
+        while (!source.exhausted()) {
+            val frame = readFrame(source) ?: break
+            if (frame.end) {
+                val code = endErrorCode(frame.payload)
+                if (code != null) throw ApiFailure(400, code)
+                onUpdate(ConversationUpdate(null, "", end = true))
+                break
+            }
+            if (frame.flags and 0x01 != 0) throw IOException("Compressed frame")
+            onUpdate(decodeConversationPayload(frame.payload))
+        }
+    }
+
+    private fun conversationRequest(bcId: String, offsetKey: String?): Request {
+        val url =
+            webBase
+                .newBuilder()
+                .addPathSegments("api/connect-proxy/aiserver.v1.BackgroundComposerService")
+                .addPathSegment("StreamConversation")
+                .build()
+        if (!cookieAllowed(url, webBase, allowConfiguredOrigin)) {
+            throw ApiFailure(0, "origin_rejected")
+        }
+        val credential = cookie()
+        if (credential.isNullOrBlank()) throw ApiFailure(401, "connection_required")
+        val payload = encodeConversationRequest(bcId, offsetKey)
+        return Request.Builder()
+            .url(url)
+            .post(payload.toRequestBody("application/connect+proto".toMediaType()))
+            .headers(sessionHeaders(url, credential, csrfToken, "POST"))
+            .header("Content-Type", "application/connect+proto")
+            .header("Connect-Protocol-Version", "1")
+            .header("Accept", "application/connect+proto")
+            .build()
+    }
 
     private suspend fun execute(
         method: String,
@@ -268,33 +309,24 @@ private suspend fun Call.await(): Response = suspendCancellableCoroutine { conti
     )
 }
 
-data class SseEvent(val id: String?, val type: String, val data: String) {
-    val identity: String?
-        get() = id?.let { "$it\u0000$type" }
+private fun readFrame(source: BufferedSource): ConnectFrame? {
+    if (source.exhausted()) return null
+    if (!source.request(5)) {
+        if (source.exhausted()) return null
+        throw IOException("Truncated frame")
+    }
+    val flags = source.readByte().toInt() and 0xFF
+    val length = source.readInt()
+    if (length < 0 || length > 8_000_000) throw IOException("Frame length")
+    if (!source.request(length.toLong())) throw IOException("Truncated frame")
+    return ConnectFrame(flags, source.readByteArray(length.toLong()))
 }
 
-/** Parses SSE framing without interpreting opaque event IDs or conflating result and done. */
-class SseParser {
-    private var id: String? = null
-    private var type = "message"
-    private val data = mutableListOf<String>()
-
-    fun line(line: String): SseEvent? {
-        if (line.isEmpty()) {
-            val event = if (data.isEmpty()) null else SseEvent(id, type, data.joinToString("\n"))
-            id = null
-            type = "message"
-            data.clear()
-            return event
-        }
-        if (line.startsWith(":")) return null
-        val field = line.substringBefore(':')
-        val value = line.substringAfter(':', "").removePrefix(" ")
-        when (field) {
-            "id" -> if ('\u0000' !in value) id = value
-            "event" -> type = value
-            "data" -> data += value
-        }
-        return null
-    }
+private fun endErrorCode(payload: ByteArray): String? {
+    val text = payload.toString(Charsets.UTF_8)
+    if (text.isBlank()) return null
+    val error =
+        runCatching { Json.parseToJsonElement(text).jsonObject["error"]?.jsonObject }.getOrNull()
+            ?: return null
+    return (error["code"] as? JsonPrimitive)?.contentOrNull
 }

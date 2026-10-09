@@ -315,22 +315,6 @@ class CursorRepository(
         }
     }
 
-    suspend fun cachedResource(path: List<String>, refresh: Boolean = true): JsonObject {
-        val session = generation
-        val key = path.joinToString("/")
-        val cached = cache.get(key)
-        if (!refresh && cached != null) return Json.parseToJsonElement(cached.json).jsonObject
-        val result =
-            try {
-                api.request("GET", listOf("v1") + path)
-            } catch (failure: IOException) {
-                if (failure is ApiFailure || cached == null) throw failure
-                return Json.parseToJsonElement(cached.json).jsonObject
-            }
-        persist(session, key, result.toString())
-        return result
-    }
-
     suspend fun repositories(): JsonObject {
         val cached = cache.get("repositories")
         if (cached != null && System.currentTimeMillis() - cached.updatedAt < 3_600_000L) {
@@ -498,79 +482,45 @@ class CursorRepository(
         }
     }
 
-    fun stream(agent: String, run: String): Flow<JsonObject> = channelFlow {
+    fun conversation(bcId: String): Flow<JsonObject> = channelFlow {
         val session = generation
-        val cacheKey = "stream/$agent/$run"
+        val cacheKey = "conversation/$bcId"
         var stored =
             cache.get(cacheKey)?.json?.let(Json::parseToJsonElement)?.jsonObject
                 ?: buildJsonObject {
                     put("text", "")
-                    put("lastId", "")
+                    put("offset", "")
                     put("seen", JsonArray(emptyList()))
                 }
         send(stored)
         var failures = 0
         while (failures < 5 && session == generation) {
-            var done = false
             try {
-                api.stream(agent, run, stored.string("lastId")) { event ->
-                    val seen = (stored["seen"] as? JsonArray)?.map { it.toString() }.orEmpty()
-                    val identity = event.identity?.let { JsonPrimitive(it).toString() }
-                    if (identity == null || identity !in seen) {
-                        val payload =
-                            runCatching { Json.parseToJsonElement(event.data).jsonObject }
-                                .getOrNull() ?: JsonObject(emptyMap())
-                        if (event.type == "error") {
-                            throw ApiFailure(400, payload.string("code").ifBlank { "stream_error" })
-                        }
-                        val text =
-                            when (event.type) {
-                                "assistant" -> stored.string("text") + payload.string("text")
-                                "result" -> payload.string("text").ifBlank { stored.string("text") }
-                                else -> stored.string("text")
-                            }
-                        stored = buildJsonObject {
-                            put("text", text)
-                            put(
-                                "status",
-                                payload.string("status").ifBlank { stored.string("status") },
-                            )
-                            put("lastId", event.id ?: stored.string("lastId"))
-                            put(
-                                "seen",
-                                JsonArray(
-                                    (seen + listOfNotNull(identity)).map(Json::parseToJsonElement)
-                                ),
-                            )
-                        }
-                        persist(session, cacheKey, stored.toString())
-                        send(stored)
+                api.conversation(bcId, stored.string("offset").ifBlank { null }) { update ->
+                    if (update.end) return@conversation
+                    val seen =
+                        (stored["seen"] as? JsonArray)
+                            ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                            .orEmpty()
+                    val offset = update.offsetKey
+                    if (offset != null && offset in seen) return@conversation
+                    if (update.text.isEmpty() && offset == null) return@conversation
+                    val nextSeen =
+                        if (offset.isNullOrBlank()) seen else (seen + offset).takeLast(200)
+                    stored = buildJsonObject {
+                        put("text", stored.string("text") + update.text)
+                        put("offset", offset ?: stored.string("offset"))
+                        put("seen", JsonArray(nextSeen.map { JsonPrimitive(it) }))
                     }
-                    if (
-                        event.type == "done" ||
-                            (event.type == "result" &&
-                                stored.string("status") in
-                                    listOf("FINISHED", "ERROR", "CANCELLED", "EXPIRED"))
-                    )
-                        done = true
+                    persist(session, cacheKey, stored.toString())
+                    send(stored)
                 }
-                if (done) break
-                failures++
-                delay((1000L shl failures).coerceAtMost(30_000))
+                break
             } catch (exception: IOException) {
-                if (exception is ApiFailure && exception.status == 410) {
-                    val result = cachedResource(listOf("agents", agent, "runs", run))
-                    send(
-                        buildJsonObject {
-                            put("text", result.string("result"))
-                            put("status", result.string("status"))
-                            put("expired", true)
-                        }
-                    )
-                    break
-                }
-                if (exception is ApiFailure && exception.status in listOf(400, 401, 403))
+                if (exception is ApiFailure && exception.status == 401) expire(session)
+                if (exception is ApiFailure && exception.status in listOf(400, 401, 403)) {
                     throw exception
+                }
                 failures++
                 val retry = retryDelayMillis((exception as? ApiFailure)?.retryAfter)
                 delay(retry ?: ((1000L shl failures) + kotlin.random.Random.nextLong(500)))

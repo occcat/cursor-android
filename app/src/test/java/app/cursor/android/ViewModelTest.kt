@@ -58,24 +58,28 @@ class ViewModelTest {
     }
 
     @Test
-    fun detailShowsComposerStatusWithoutFakeLiveText() = runBlocking {
+    fun detailShowsComposerStatusAndConnectText() = runBlocking {
         server.enqueue(
             MockResponse()
                 .setBody(
                     """{"composers":[{"composer":{"bcId":"a","name":"N","status":"RUNNING"}}]}"""
                 )
         )
+        val frames =
+            app.cursor.android.data.interactionFrame("off-1", "Hello") +
+                app.cursor.android.data.endFrame()
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(frames)))
         val collection = launch(Dispatchers.Unconfined) { model.uiState.collect {} }
         model.detail("a").join()
         val shown =
-            withTimeout(5_000) { model.uiState.first { it.local.detail?.string("bcId") == "a" } }
+            withTimeout(5_000) { model.uiState.first { it.local.streamText == "Hello" } }
         assertEquals("RUNNING", shown.local.detail!!.string("status"))
-        assertEquals("", shown.local.streamText)
+        assertEquals("Hello", shown.local.streamText)
         assertTrue(shown.local.runs.isEmpty())
-        assertEquals(1, server.requestCount)
-        val request = server.takeRequest()
-        assertEquals("/api/background-composer/get-detailed-composer", request.path)
-        assertTrue(request.body.readUtf8().contains("\"bcId\":\"a\""))
+        server.takeRequest()
+        val stream = server.takeRequest()
+        assertTrue(stream.path!!.endsWith("StreamConversation"))
+        assertNull(stream.getHeader("Authorization"))
         collection.cancelAndJoin()
     }
 

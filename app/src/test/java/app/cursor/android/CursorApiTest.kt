@@ -1,10 +1,11 @@
 package app.cursor.android
 
 import app.cursor.android.data.ApiFailure
+import app.cursor.android.data.ConversationUpdate
 import app.cursor.android.data.CursorApi
-import app.cursor.android.data.SseEvent
-import app.cursor.android.data.SseParser
 import app.cursor.android.data.cookieAllowed
+import app.cursor.android.data.endFrame
+import app.cursor.android.data.interactionFrame
 import app.cursor.android.data.sessionHeaders
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import kotlinx.coroutines.launch
@@ -167,42 +168,51 @@ class CursorApiTest {
     }
 
     @Test
-    fun streamResumesOpaqueIdAndKeepsResultDoneWithSameId() = runTest {
-        server.enqueue(
-            MockResponse()
-                .setHeader("Content-Type", "text/event-stream")
-                .setBody(
-                    "event: status\ndata: {\"status\":\"RUNNING\"}\n\n" +
-                        "id: opaque:1\nevent: result\ndata: {\"text\":\"done\"}\n\n" +
-                        "id: opaque:1\nevent: done\ndata: {}\n\n"
-                )
+    fun conversationUsesConnectFramesAndCarriesOffset() = runTest {
+        val bytes = interactionFrame("off-1", "Hello") + endFrame()
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(bytes)))
+        val updates = mutableListOf<ConversationUpdate>()
+        api.conversation("bc-1", "previous") { updates += it }
+        val request = server.takeRequest()
+        assertEquals(
+            "/api/connect-proxy/aiserver.v1.BackgroundComposerService/StreamConversation",
+            request.path,
         )
-        val events = mutableListOf<SseEvent>()
-        api.stream("bc-1", "run-1", "previous/opaque") { events += it }
-        assertEquals("previous/opaque", server.takeRequest().getHeader("Last-Event-ID"))
-        assertEquals(listOf("status", "result", "done"), events.map { it.type })
-        assertNull(events[0].id)
-        assertTrue(events[1].identity != events[2].identity)
+        assertEquals("application/connect+proto", request.getHeader("Content-Type"))
+        assertEquals("1", request.getHeader("Connect-Protocol-Version"))
+        assertNull(request.getHeader("Authorization"))
+        val payload = request.body.readByteArray().toString(Charsets.UTF_8)
+        assertTrue(payload.contains("bc-1"))
+        assertTrue(payload.contains("previous"))
+        assertFalse(payload.contains("session=fixture"))
+        assertEquals("Hello", updates.first { it.text.isNotBlank() }.text)
+        assertEquals("off-1", updates.first { it.offsetKey != null }.offsetKey)
+        assertTrue(updates.last().end)
     }
 
     @Test
-    fun streamExpiryIsTypedForRepositoryFallback() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(410).setBody("""{"error":{"code":"stream_expired"}}""")
-        )
-        val failure = runCatching { api.stream("bc", "run", "cursor") {} }.exceptionOrNull()
-        assertEquals(410, (failure as ApiFailure).status)
+    fun conversationEndErrorIsNotShownAsText() = runTest {
+        val bytes =
+            endFrame(
+                """{"error":{"code":"usage_limit_exceeded","cookie":"session=fixture"}}"""
+            )
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(bytes)))
+        val failure =
+            runCatching { api.conversation("bc", null) {} }.exceptionOrNull() as ApiFailure
+        assertEquals("usage_limit_exceeded", failure.code)
+        assertFalse(failure.message!!.contains("session=fixture"))
     }
 
     @Test
     fun cancellingVisibleStreamClosesSocketPromptly() =
         kotlinx.coroutines.runBlocking {
+            val bytes = interactionFrame("off", "pending") + endFrame()
             server.enqueue(
                 MockResponse()
-                    .setBody("event: heartbeat\ndata: {}\n\n")
+                    .setBody(okio.Buffer().write(bytes))
                     .setBodyDelay(2, java.util.concurrent.TimeUnit.SECONDS)
             )
-            val stream = launch { api.stream("a", "r", null) {} }
+            val stream = launch { api.conversation("a", null) {} }
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 server.takeRequest(5, java.util.concurrent.TimeUnit.SECONDS)
             }
@@ -212,17 +222,4 @@ class CursorApiTest {
             kotlinx.coroutines.withTimeout(2_000) { stream.join() }
             assertTrue((System.nanoTime() - started) / 1_000_000 < 2_000)
         }
-
-    @Test
-    fun parserSupportsCommentsMultilineAndEmptyIds() {
-        val parser = SseParser()
-        assertNull(parser.line(": heartbeat"))
-        parser.line("id:")
-        parser.line("event: assistant")
-        parser.line("data: first")
-        parser.line("data: second")
-        assertEquals(SseEvent("", "assistant", "first\nsecond"), parser.line(""))
-        parser.line("data: next")
-        assertNull(parser.line("")!!.id)
-    }
 }

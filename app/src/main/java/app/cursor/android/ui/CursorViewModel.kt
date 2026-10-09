@@ -6,7 +6,6 @@ import app.cursor.android.data.CursorRepository
 import app.cursor.android.data.Preferences
 import app.cursor.android.data.UserPreferences
 import app.cursor.android.data.array
-import app.cursor.android.data.items
 import app.cursor.android.data.string
 import app.cursor.android.domain.UsageSnapshot
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -99,41 +98,29 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
         }
         val detail = repository.composer(id)
         local.update { it.copy(detail = detail, streamText = "") }
+        watch(id)
     }
 
     fun stopWatching() {
         streaming?.cancel()
     }
 
-    private fun watch(agent: String, run: String) {
+    private fun watch(agent: String) {
+        streaming?.cancel()
         streaming =
             viewModelScope.launch {
                 try {
-                    repository.stream(agent, run).collect { event ->
-                        val status = event.string("status")
-                        local.update { state ->
-                            state.copy(
-                                streamText = event.string("text"),
-                                runs =
-                                    state.runs.map { item ->
-                                        if (item.string("id") == run && status.isNotBlank()) {
-                                            JsonObject(
-                                                item +
-                                                    ("status" to
-                                                        kotlinx.serialization.json.JsonPrimitive(
-                                                            status
-                                                        ))
-                                            )
-                                        } else item
-                                    },
-                            )
-                        }
+                    repository.conversation(agent).collect { event ->
+                        local.update { it.copy(streamText = event.string("text")) }
                     }
-                    val current = repository.cachedResource(listOf("agents", agent, "runs"))
-                    local.update { it.copy(runs = current.items()) }
                 } catch (exception: Exception) {
                     if (exception is CancellationException) throw exception
-                    local.update { it.copy(error = exception.message ?: "Stream unavailable") }
+                    local.update {
+                        it.copy(
+                            error = exception.message ?: "Stream unavailable",
+                            webConnected = repository.webConnected,
+                        )
+                    }
                 }
             }
     }
@@ -141,7 +128,8 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
     fun followUp(id: String, text: String) = action {
         repository.followUp(id, text)
         val detail = repository.composer(id)
-        local.update { it.copy(detail = detail, streamText = "") }
+        local.update { it.copy(detail = detail) }
+        watch(id)
     }
 
     fun agentAction(id: String, action: String, complete: () -> Unit) = action {
