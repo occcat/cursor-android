@@ -11,11 +11,14 @@ preview data; it is distinct from native launcher verification.
 
 ## Native capture evidence
 
-These are actual API 36 Glance RemoteViews rendered in the debug AppWidgetHostView.
-The figures and Agent summaries are injected synthetic fixtures, not production
-account data. The files are unedited full-screen captures; open them to inspect
-the widget at its recorded dimensions. They do not establish behavior on every
-launcher or replace a live-account check.
+These are actual API 36 Glance RemoteViews rendered in the debug AppWidgetHostView,
+captured in the light system theme. The figures and Agent summaries are injected
+synthetic fixtures, not production account data. The files are unedited full-screen
+captures (1080 × 1920 px, 320 × 569 dp); open them to inspect the widget at its recorded
+dimensions. The line above each widget is the debug host's fixture label; that host does
+not inset its content, so the label sits under the emulator's status bar. Dark-theme
+variants come from the same device job as part of its `device-screens` artifact. The
+captures do not establish behavior on every launcher or replace a live-account check.
 
 | Capture | What it verifies visually |
 | --- | --- |
