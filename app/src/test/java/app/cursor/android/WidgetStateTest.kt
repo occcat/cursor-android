@@ -22,7 +22,7 @@ class WidgetStateTest {
         snapshot: UsageSnapshot? = usage,
         preferences: Preferences = Preferences(),
         connected: Boolean = true,
-    ) = WidgetState(snapshot, null, preferences, Connections(connected, connected))
+    ) = WidgetState(snapshot, null, preferences, Connections(connected))
 
     @Test
     fun valuesUseSharedMetricAndNeverTreatUnknownAsZero() {
@@ -61,7 +61,7 @@ class WidgetStateTest {
                 null,
                 AgentSnapshot(listOf(agent), now),
                 Preferences(),
-                Connections(true, false),
+                Connections(true),
             )
         assertEquals("Agent 1", state.agentRows().single().title)
         assertEquals("Active", state.agentRows().single().status)
@@ -70,7 +70,7 @@ class WidgetStateTest {
             "Private project",
             state.copy(preferences = Preferences(widgetTitles = true)).agentRows().single().title,
         )
-        assertTrue(state.copy(connections = Connections(false, false)).agentRows().isEmpty())
+        assertTrue(state.copy(connections = Connections(false)).agentRows().isEmpty())
     }
 
     @Test

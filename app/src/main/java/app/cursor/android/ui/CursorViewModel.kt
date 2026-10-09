@@ -28,10 +28,7 @@ import kotlinx.serialization.json.JsonObject
 class CursorViewModel
 @Inject
 constructor(private val repository: CursorRepository, val settings: UserPreferences) : ViewModel() {
-    private val local =
-        MutableStateFlow(
-            LocalState(connected = repository.connected, webConnected = repository.webConnected)
-        )
+    private val local = MutableStateFlow(LocalState(webConnected = repository.webConnected))
     val uiState: StateFlow<UiState> =
         combine(local, repository.agents, repository.usage, settings.preferences) {
                 state,
@@ -44,15 +41,20 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
     private var streaming: Job? = null
     private val actions = Mutex()
 
-    fun connect(key: String) = action {
-        repository.connect(key)
-        local.update { it.copy(connected = true) }
-        repository.refreshAgents()
+    init {
+        viewModelScope.launch {
+            repository.connections.collect { connections ->
+                local.update { it.copy(webConnected = connections.web) }
+            }
+        }
     }
 
-    fun connectWeb(cookie: String) = action {
+    fun connectWeb(cookie: String, connected: () -> Unit = {}) = action {
         repository.connectWeb(cookie)
         local.update { it.copy(webConnected = true) }
+        connected()
+        repository.refreshUsage()
+        repository.refreshAgents()
     }
 
     fun disconnect() = action {
@@ -226,11 +228,7 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
                     local.update { it.copy(error = exception.message ?: "Request failed") }
                 } finally {
                     local.update {
-                        it.copy(
-                            busy = false,
-                            connected = repository.connected,
-                            webConnected = repository.webConnected,
-                        )
+                        it.copy(busy = false, webConnected = repository.webConnected)
                     }
                 }
             }
@@ -238,7 +236,6 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
 }
 
 data class LocalState(
-    val connected: Boolean = false,
     val webConnected: Boolean = false,
     val busy: Boolean = false,
     val error: String? = null,

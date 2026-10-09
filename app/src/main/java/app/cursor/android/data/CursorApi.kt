@@ -19,6 +19,7 @@ import kotlinx.serialization.json.jsonObject
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Cookie
+import okhttp3.Headers
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -30,12 +31,14 @@ import okhttp3.Response
 class ApiFailure(val status: Int, val code: String, val retryAfter: String? = null) :
     IOException("HTTP $status · $code")
 
-/** Credentials are attached only to the configured origin; redirects never forward them. */
+/**
+ * Cookie is attached only to the session origin. Production origin is https://cursor.com.
+ * Tests may opt into their configured origin; redirects are never followed.
+ */
 class CursorApi(
-    private val key: () -> String?,
     private val cookie: () -> String?,
-    private val apiBase: HttpUrl = "https://api.cursor.com/".toHttpUrl(),
     private val webBase: HttpUrl = "https://cursor.com/".toHttpUrl(),
+    private val allowConfiguredOrigin: Boolean = false,
     private val client: OkHttpClient =
         OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
@@ -55,20 +58,7 @@ class CursorApi(
         val operation = if (patch == null) "get" else "update"
         val path =
             listOf("api", "background-composer", "$operation-background-composer-user-settings")
-        try {
-            return request("POST", path, patch, web = true)
-        } catch (failure: ApiFailure) {
-            if (failure.code != "invalid_csrf_token") throw failure
-            client.newCall(build("GET", listOf("api", "csrf-token"), web = true)).await().use {
-                response ->
-                if (!response.isSuccessful) throw failure
-                csrfToken =
-                    Cookie.parseAll(webBase, response.headers)
-                        .firstOrNull { it.name in listOf("csrf-token", "cursor-csrf-token") }
-                        ?.value ?: throw failure
-            }
-            return request("POST", path, patch, web = true)
-        }
+        return request("POST", path, patch)
     }
 
     suspend fun request(
@@ -76,13 +66,14 @@ class CursorApi(
         segments: List<String>,
         body: JsonObject? = null,
         query: Map<String, String> = emptyMap(),
-        web: Boolean = false,
+        cookieOverride: String? = null,
     ): JsonObject {
-        val request = build(method, segments, body, query, web)
-        return client.newCall(request).await().use { response ->
-            val text = withContext(Dispatchers.IO) { response.body?.string().orEmpty() }
-            if (!response.isSuccessful) throw failure(response, text)
-            if (text.isBlank()) JsonObject(emptyMap()) else Json.parseToJsonElement(text).jsonObject
+        try {
+            return execute(method, segments, body, query, cookieOverride)
+        } catch (failure: ApiFailure) {
+            if (failure.code != "invalid_csrf_token" || method == "GET") throw failure
+            refreshCsrf(cookieOverride)
+            return execute(method, segments, body, query, cookieOverride)
         }
     }
 
@@ -133,55 +124,72 @@ class CursorApi(
             }
         }
 
-    private fun build(
+    private suspend fun execute(
+        method: String,
+        segments: List<String>,
+        body: JsonObject?,
+        query: Map<String, String>,
+        cookieOverride: String?,
+    ): JsonObject {
+        val call = client.newCall(build(method, segments, body, query, cookieOverride))
+        return call.await().use { response ->
+            val text = withContext(Dispatchers.IO) { response.body?.string().orEmpty() }
+            if (!response.isSuccessful) throw failure(response, text)
+            if (text.isBlank()) JsonObject(emptyMap()) else Json.parseToJsonElement(text).jsonObject
+        }
+    }
+
+    private suspend fun refreshCsrf(cookieOverride: String?) {
+        val call =
+            client.newCall(
+                build("GET", listOf("api", "csrf-token"), cookieOverride = cookieOverride)
+            )
+        call.await().use { response ->
+            if (!response.isSuccessful) throw failure(response, response.body?.string().orEmpty())
+            if (!sameOrigin(response.request.url)) {
+                throw ApiFailure(response.code, "invalid_csrf_token")
+            }
+            csrfToken =
+                Cookie.parseAll(response.request.url, response.headers)
+                    .firstOrNull { it.name in listOf("csrf-token", "cursor-csrf-token") }
+                    ?.value ?: throw ApiFailure(response.code, "invalid_csrf_token")
+        }
+    }
+
+    internal fun build(
         method: String,
         segments: List<String>,
         body: JsonObject? = null,
         query: Map<String, String> = emptyMap(),
-        web: Boolean = false,
+        cookieOverride: String? = null,
     ): Request {
-        val base = if (web) webBase else apiBase
         val url =
-            base
+            webBase
                 .newBuilder()
                 .apply {
                     segments.forEach { addPathSegment(it) }
                     query.forEach { (name, value) -> addQueryParameter(name, value) }
                 }
                 .build()
-        val credential = if (web) cookie() else key()
+        if (!cookieAllowed(url, webBase, allowConfiguredOrigin)) {
+            throw ApiFailure(0, "origin_rejected")
+        }
+        val credential = cookieOverride ?: cookie()
         if (credential.isNullOrBlank()) throw ApiFailure(401, "connection_required")
         val requestBody =
-            if (method in listOf("POST", "PUT", "PATCH")) {
+            if (method in listOf("POST", "PUT", "PATCH", "DELETE")) {
                 (body?.toString() ?: "{}").toRequestBody("application/json".toMediaType())
             } else null
         return Request.Builder()
             .url(url)
             .method(method, requestBody)
             .header("Accept", "application/json")
-            .apply {
-                if (web) {
-                    val token =
-                        csrfToken
-                            ?: credential
-                                .split(';')
-                                .map(String::trim)
-                                .firstOrNull { it.startsWith("csrf-token=") }
-                                ?.substringAfter('=')
-                    val cookies =
-                        if (csrfToken == null) credential
-                        else
-                            credential
-                                .split(';')
-                                .filterNot { it.trim().startsWith("csrf-token=") }
-                                .joinToString(";") + "; csrf-token=$csrfToken"
-                    header("Cookie", cookies)
-                    header("Origin", webBase.toString().trimEnd('/'))
-                    if (token != null && method != "GET") header("x-csrf-token", token)
-                } else header("Authorization", "Bearer $credential")
-            }
+            .headers(sessionHeaders(url, credential, csrfToken, method))
             .build()
     }
+
+    private fun sameOrigin(url: HttpUrl): Boolean =
+        cookieAllowed(url, webBase, allowConfiguredOrigin)
 
     private fun failure(response: Response, body: String): ApiFailure {
         val error =
@@ -191,6 +199,59 @@ class CursorApi(
         return ApiFailure(response.code, code, response.header("Retry-After"))
     }
 }
+
+/** Cookie and CSRF headers for one origin. Never an Authorization header. */
+internal fun sessionHeaders(
+    url: HttpUrl,
+    credential: String,
+    csrfToken: String?,
+    method: String,
+): Headers {
+    val token =
+        csrfToken
+            ?: credential
+                .split(';')
+                .map(String::trim)
+                .firstOrNull { it.startsWith("csrf-token=") }
+                ?.substringAfter('=')
+    val cookies =
+        if (csrfToken == null) credential
+        else
+            credential.split(';').filterNot { it.trim().startsWith("csrf-token=") }.joinToString(
+                ";"
+            ) + "; csrf-token=$csrfToken"
+    val builder =
+        Headers.Builder()
+            .add("Accept", "application/json")
+            .add("Cookie", cookies)
+            .add("Origin", originOf(url))
+    val team = teamId(credential)
+    if (team != null) builder.add("x-cursor-team-id", team)
+    if (token != null && method != "GET") builder.add("x-csrf-token", token)
+    return builder.build()
+}
+
+internal fun cookieAllowed(
+    url: HttpUrl,
+    origin: HttpUrl,
+    allowConfiguredOrigin: Boolean,
+): Boolean {
+    if (url.scheme == "https" && url.host == "cursor.com" && url.port == 443) return true
+    return allowConfiguredOrigin &&
+        url.scheme == origin.scheme &&
+        url.host == origin.host &&
+        url.port == origin.port
+}
+
+internal fun teamId(cookie: String): String? =
+    cookie
+        .split(';')
+        .map(String::trim)
+        .firstOrNull { it.startsWith("portal-selected-team-id=") }
+        ?.substringAfter('=')
+        ?.takeIf { it.isNotBlank() }
+
+private fun originOf(url: HttpUrl): String = url.scheme + "://" + url.host
 
 private suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
     continuation.invokeOnCancellation { cancel() }

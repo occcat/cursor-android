@@ -78,7 +78,7 @@ class WidgetExperienceTest {
                 now,
             ),
             Preferences(),
-            Connections(true, true),
+            Connections(true),
         )
 
     @Test
@@ -105,7 +105,7 @@ class WidgetExperienceTest {
                     UsageWidget(),
                     320,
                     180,
-                    state.copy(connections = Connections(true, false)),
+                    state.copy(connections = Connections(false)),
                     "Expired session fixture",
                 )
             assertFalse(expired.any { it.text.toString().contains("68%") })

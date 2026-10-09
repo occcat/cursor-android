@@ -4,6 +4,9 @@ import app.cursor.android.data.ApiFailure
 import app.cursor.android.data.CursorApi
 import app.cursor.android.data.SseEvent
 import app.cursor.android.data.SseParser
+import app.cursor.android.data.cookieAllowed
+import app.cursor.android.data.sessionHeaders
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.buildJsonObject
@@ -28,10 +31,9 @@ class CursorApiTest {
         server.start()
         api =
             CursorApi(
-                { "fixture-key" },
                 { "session=fixture; csrf-token=old" },
                 server.url("/"),
-                server.url("/"),
+                allowConfiguredOrigin = true,
             )
     }
 
@@ -41,18 +43,56 @@ class CursorApiTest {
     }
 
     @Test
-    fun authModesNeverMixAndPathsAreEncoded() = runTest {
+    fun sessionCookieNeverAddsAuthorizationAndPathsAreEncoded() = runTest {
         server.enqueue(MockResponse().setBody("{}"))
-        api.request("GET", listOf("v1", "agents", "unsafe/id"))
-        val official = server.takeRequest()
-        assertEquals("Bearer fixture-key", official.getHeader("Authorization"))
-        assertNull(official.getHeader("Cookie"))
-        assertEquals("/v1/agents/unsafe%2Fid", official.path)
-        server.enqueue(MockResponse().setBody("{}"))
-        api.request("GET", listOf("api", "usage-summary"), web = true)
+        api.request("GET", listOf("api", "auth", "me"))
         val web = server.takeRequest()
         assertNull(web.getHeader("Authorization"))
         assertTrue(web.getHeader("Cookie")!!.contains("session=fixture"))
+        assertEquals("/api/auth/me", web.path)
+        server.enqueue(MockResponse().setBody("{}"))
+        api.request("GET", listOf("v1", "agents", "unsafe/id"))
+        val encoded = server.takeRequest()
+        assertNull(encoded.getHeader("Authorization"))
+        assertEquals("/v1/agents/unsafe%2Fid", encoded.path)
+    }
+
+    @Test
+    fun foreignHostGetsNoCookieAndNoAuthorization() = runTest {
+        val blocked =
+            CursorApi({ "session=secret-cookie" }, server.url("/"), allowConfiguredOrigin = false)
+        val error =
+            runCatching { blocked.request("GET", listOf("api", "auth", "me")) }.exceptionOrNull()
+        assertTrue(error is ApiFailure)
+        assertEquals("origin_rejected", (error as ApiFailure).code)
+        assertFalse(error.message!!.contains("secret-cookie"))
+        assertEquals(0, server.requestCount)
+        assertFalse(
+            cookieAllowed(server.url("/api/auth/me"), "https://cursor.com/".toHttpUrl(), false)
+        )
+        val allowed =
+            sessionHeaders(
+                "https://cursor.com/api/auth/me".toHttpUrl(),
+                "session=secret-cookie",
+                null,
+                "GET",
+            )
+        assertNull(allowed["Authorization"])
+        assertTrue(allowed["Cookie"]!!.contains("session=secret-cookie"))
+    }
+
+    @Test
+    fun failureBodyDoesNotEchoTheCookie() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(500)
+                .setBody("""{"error":{"code":"request_failed"},"echo":"session=fixture"}""")
+        )
+        val failure =
+            runCatching { api.request("GET", listOf("api", "auth", "me")) }.exceptionOrNull()
+                as ApiFailure
+        assertFalse(failure.message!!.contains("session=fixture"))
+        assertFalse(failure.toString().contains("csrf-token"))
     }
 
     @Test
@@ -95,11 +135,35 @@ class CursorApiTest {
         api.webSettings(buildJsonObject { put("branchPrefix", "mobile/") })
         assertEquals(3, server.requestCount)
         assertEquals("old", server.takeRequest().getHeader("x-csrf-token"))
-        assertEquals("/api/csrf-token", server.takeRequest().path)
+        val refresh = server.takeRequest()
+        assertEquals("/api/csrf-token", refresh.path)
+        assertNull(refresh.getHeader("Authorization"))
         val retry = server.takeRequest()
         assertEquals("fresh", retry.getHeader("x-csrf-token"))
         assertEquals("""{"branchPrefix":"mobile/"}""", retry.body.readUtf8())
         assertFalse(retry.body.toString().contains("autoCreatePr"))
+    }
+
+    @Test
+    fun secondCsrfFailureStops() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(403)
+                .setBody("""{"error":{"code":"invalid_csrf_token"}}""")
+        )
+        server.enqueue(
+            MockResponse().addHeader("Set-Cookie", "csrf-token=fresh; Path=/").setBody("{}")
+        )
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(403)
+                .setBody("""{"error":{"code":"invalid_csrf_token"}}""")
+        )
+        val failure =
+            runCatching { api.webSettings(buildJsonObject { put("branchPrefix", "x") }) }
+                .exceptionOrNull() as ApiFailure
+        assertEquals("invalid_csrf_token", failure.code)
+        assertEquals(3, server.requestCount)
     }
 
     @Test

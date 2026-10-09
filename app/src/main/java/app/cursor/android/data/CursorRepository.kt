@@ -29,17 +29,19 @@ fun JsonObject.items(): List<JsonObject> =
 
 data class AgentSnapshot(val agents: List<JsonObject>, val updatedAt: Long)
 
-data class Connections(val api: Boolean, val web: Boolean)
+/** The only connection is the cursor.com web session. */
+data class Connections(val web: Boolean)
 
 class CursorRepository(
     val api: CursorApi,
     private val cache: CacheDao,
     private val credentials: Credentials,
+    private val migration: SessionMigration = MemoryMigration(true),
     private val clearWebSession: suspend () -> Unit = {},
 ) {
     private val lock = Mutex()
     @Volatile private var generation = 0L
-    private val connectionState = MutableStateFlow(Connections(connected, webConnected))
+    private val connectionState = MutableStateFlow(Connections(false))
     val connections = connectionState.asStateFlow()
     val agentSnapshot =
         cache.observe("agents").map { entry ->
@@ -55,38 +57,53 @@ class CursorRepository(
         cache.observe("usage").map {
             it?.json?.let { text -> Json.decodeFromString<UsageSnapshot?>(text) }
         }
-    val connected: Boolean
-        get() = credentials.read("api") != null
-
     val webConnected: Boolean
-        get() = credentials.read("cookie") != null
+        get() = connectionState.value.web
 
-    suspend fun connect(key: String) {
-        require(key.isNotBlank() && '\n' !in key && '\r' !in key)
-        val verification = CursorApi({ key.trim() }, { null })
-        verification.request("GET", listOf("v1", "me"))
-        lock.withLock {
-            generation++
-            cache.clear()
-            credentials.write("api", key.trim())
-            connectionState.value = Connections(connected, webConnected)
+    /**
+     * First launch after this upgrade drops any API key, clears remote v1 cache, and
+     * keeps a cookie only when GET /api/auth/me returns 200.
+     */
+    suspend fun restore() {
+        val session = generation
+        val upgrading = !migration.completed()
+        if (upgrading) {
+            credentials.write("api", null)
+            cache.clearExcept("usage")
+            migration.markCompleted()
+        } else if (credentials.read("api") != null) {
+            credentials.write("api", null)
+        }
+        val cookie = credentials.read("cookie")
+        if (cookie.isNullOrBlank()) {
+            connectionState.value = Connections(false)
+            return
+        }
+        try {
+            val me = api.request("GET", listOf("api", "auth", "me"))
+            persist(session, "identity", identityOf(me).toString())
+            if (generation == session) connectionState.value = Connections(true)
+        } catch (failure: ApiFailure) {
+            if (failure.status == 401) expire(session)
+            else if (failure.status != 403) throw failure
+            else if (generation == session) connectionState.value = Connections(true)
+        } catch (_: IOException) {
+            val stale = upgrading || cache.get("usage") != null || cache.get("identity") != null
+            if (generation == session) connectionState.value = Connections(stale)
         }
     }
 
     suspend fun connectWeb(cookie: String) {
-        val verification = CursorApi({ null }, { cookie })
-        val value = verification.request("GET", listOf("api", "usage-summary"), web = true)
+        require(cookie.isNotBlank() && '\n' !in cookie && '\r' !in cookie)
+        val me = api.request("GET", listOf("api", "auth", "me"), cookieOverride = cookie)
         lock.withLock {
             generation++
             api.resetWebSession()
+            credentials.write("api", null)
             credentials.write("cookie", cookie)
-            connectionState.value = Connections(connected, webConnected)
+            connectionState.value = Connections(true)
             cache.put(
-                CacheEntry(
-                    "usage",
-                    Json.encodeToString(UsageSnapshot.fromJson(value, System.currentTimeMillis())),
-                    System.currentTimeMillis(),
-                )
+                CacheEntry("identity", identityOf(me).toString(), System.currentTimeMillis())
             )
         }
     }
@@ -96,11 +113,24 @@ class CursorRepository(
             generation++
             credentials.write("api", null)
             credentials.write("cookie", null)
-            connectionState.value = Connections(false, false)
+            connectionState.value = Connections(false)
             api.resetWebSession()
             cache.clear()
             clearWebSession()
         }
+
+    private suspend fun expire(session: Long) {
+        lock.withLock {
+            if (generation != session) return
+            generation++
+            credentials.write("api", null)
+            credentials.write("cookie", null)
+            connectionState.value = Connections(false)
+            api.resetWebSession()
+            cache.clear()
+            clearWebSession()
+        }
+    }
 
     suspend fun refreshAgents(more: Boolean = false) {
         val session = generation
@@ -120,16 +150,7 @@ class CursorRepository(
                         },
                 )
             } catch (failure: ApiFailure) {
-                if (failure.status == 401) {
-                    lock.withLock {
-                        if (generation == session) {
-                            generation++
-                            credentials.write("api", null)
-                            connectionState.value = Connections(false, webConnected)
-                            cache.put(CacheEntry("agents", "null", System.currentTimeMillis()))
-                        }
-                    }
-                }
+                if (failure.status == 401) expire(session)
                 throw failure
             }
         val combined =
@@ -148,22 +169,14 @@ class CursorRepository(
     suspend fun refreshUsage() {
         val session = generation
         try {
-            val json = api.request("GET", listOf("api", "usage-summary"), web = true)
+            val json = api.request("GET", listOf("api", "usage-summary"))
             persist(
                 session,
                 "usage",
                 Json.encodeToString(UsageSnapshot.fromJson(json, System.currentTimeMillis())),
             )
         } catch (failure: ApiFailure) {
-            if (failure.status == 401)
-                lock.withLock {
-                    if (generation == session) {
-                        generation++
-                        credentials.write("cookie", null)
-                        connectionState.value = Connections(connected, false)
-                        cache.put(CacheEntry("usage", "null", System.currentTimeMillis()))
-                    }
-                }
+            if (failure.status == 401) expire(session)
             throw failure
         }
     }
@@ -344,6 +357,12 @@ class CursorRepository(
         lock.withLock {
             if (generation == session) cache.put(CacheEntry(key, json, System.currentTimeMillis()))
         }
+}
+
+private fun identityOf(me: JsonObject) = buildJsonObject {
+    put("email", me.string("email"))
+    put("name", me.string("name"))
+    put("id", me.string("id"))
 }
 
 fun retryDelayMillis(header: String?, now: Long = System.currentTimeMillis()): Long? {

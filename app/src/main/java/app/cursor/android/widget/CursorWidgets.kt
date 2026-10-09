@@ -80,7 +80,7 @@ abstract class CursorWidget : GlanceAppWidget() {
 
     override suspend fun providePreview(context: Context, widgetCategory: Int) {
         provideContent {
-            Content(WidgetState(null, null, Preferences(), Connections(false, false)))
+            Content(WidgetState(null, null, Preferences(), Connections(false)))
         }
     }
 
@@ -202,7 +202,7 @@ class AgentsWidget : CursorWidget() {
             Spacer(GlanceModifier.height(4.dp))
             if (rows.isEmpty()) {
                 Text(
-                    if (state.connections.api && state.agents != null)
+                    if (state.connections.web && state.agents != null)
                         state.text("No agents yet", "暂无会话")
                     else state.text("Open the app to connect", "打开应用以连接"),
                     GlanceModifier.fillMaxWidth()

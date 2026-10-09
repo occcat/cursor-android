@@ -5,6 +5,7 @@ import app.cursor.android.data.CacheEntry
 import app.cursor.android.data.Credentials
 import app.cursor.android.data.CursorApi
 import app.cursor.android.data.CursorRepository
+import app.cursor.android.data.MemoryMigration
 import app.cursor.android.data.items
 import app.cursor.android.data.string
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +19,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -38,10 +40,9 @@ class RepositoryTest {
         repository =
             CursorRepository(
                 CursorApi(
-                    { credentials.read("api") },
                     { credentials.read("cookie") },
                     server.url("/"),
-                    server.url("/"),
+                    allowConfiguredOrigin = true,
                 ),
                 cache,
                 credentials,
@@ -65,7 +66,7 @@ class RepositoryTest {
         repository.disconnect()
         refresh.await()
         assertNull(repository.agentSnapshot.first())
-        assertEquals(false, repository.connections.first().api)
+        assertEquals(false, repository.connections.first().web)
     }
 
     @Test
@@ -74,19 +75,72 @@ class RepositoryTest {
         assertEquals(1234, repository.agentSnapshot.first()!!.updatedAt)
         repository.disconnect()
         assertNull(repository.agentSnapshot.first())
-        assertEquals(false, repository.connections.first().api)
         assertEquals(false, repository.connections.first().web)
     }
 
     @Test
-    fun expiredAgentKeyClearsWidgetSnapshotWithoutClearingWebConnection() = runTest {
+    fun expiredSessionClearsCookieAndCachedAgents() = runTest {
         cache.put(CacheEntry("agents", "{\"items\":[{\"id\":\"a\"}]}", 1234))
         server.enqueue(MockResponse().setResponseCode(401))
         runCatching { repository.refreshAgents() }
         assertNull(repository.agentSnapshot.first())
         assertNull(credentials.read("api"))
-        assertEquals(false, repository.connections.first().api)
-        assertEquals(true, repository.connections.first().web)
+        assertNull(credentials.read("cookie"))
+        assertEquals(false, repository.connections.first().web)
+    }
+
+    @Test
+    fun me401DeletesCookieAnd403DoesNot() = runTest {
+        val migration = MemoryMigration()
+        val local = signedInRepository(migration)
+        server.enqueue(MockResponse().setResponseCode(401))
+        local.restore()
+        assertNull(credentials.read("cookie"))
+        assertEquals(false, local.connections.first().web)
+        credentials.write("cookie", "session=fixture")
+        server.enqueue(
+            MockResponse().setResponseCode(403).setBody("""{"error":{"code":"forbidden"}}""")
+        )
+        local.restore()
+        assertEquals("session=fixture", credentials.read("cookie"))
+        assertEquals(true, local.connections.first().web)
+    }
+
+    @Test
+    fun upgradeDropsApiKeyClearsRemoteCacheAndSignsInOnlyAfterMe() = runTest {
+        val migration = MemoryMigration()
+        val local = signedInRepository(migration)
+        credentials.write("api", "crsr_secret")
+        credentials.write("cookie", null)
+        cache.put(CacheEntry("agents", "{\"items\":[{\"id\":\"old\"}]}", 1))
+        cache.put(CacheEntry("usage", "{\"cursorUsed\":32.0}", 1))
+        local.restore()
+        assertNull(credentials.read("api"))
+        assertNull(cache.get("agents"))
+        assertEquals("{\"cursorUsed\":32.0}", cache.get("usage")!!.json)
+        assertEquals(false, local.webConnected)
+        assertEquals(0, server.requestCount)
+
+        credentials.write("api", "crsr_secret")
+        credentials.write("cookie", "session=live")
+        cache.put(CacheEntry("agents", "{\"items\":[{\"id\":\"old\"}]}", 2))
+        migration.let {
+            val again = MemoryMigration()
+            val second = signedInRepository(again)
+            server.enqueue(
+                MockResponse().setBody("""{"email":"a@example.com","name":"A","id":"user-1"}""")
+            )
+            second.restore()
+            assertNull(credentials.read("api"))
+            assertEquals("session=live", credentials.read("cookie"))
+            assertNull(cache.get("agents"))
+            assertEquals(true, second.webConnected)
+            val me = server.takeRequest()
+            assertEquals("/api/auth/me", me.path)
+            assertNull(me.getHeader("Authorization"))
+            assertTrue(me.getHeader("Cookie")!!.contains("session=live"))
+            assertFalse(me.getHeader("Cookie")!!.contains("crsr_secret"))
+        }
     }
 
     @Test
@@ -153,7 +207,7 @@ class RepositoryTest {
         var cleared = false
         val local =
             CursorRepository(
-                CursorApi({ "fixture" }, { "cookie" }, server.url("/"), server.url("/")),
+                CursorApi({ "cookie" }, server.url("/"), allowConfiguredOrigin = true),
                 cache,
                 credentials,
             ) {
@@ -185,6 +239,18 @@ class RepositoryTest {
             ),
         )
     }
+
+    private fun signedInRepository(migration: MemoryMigration) =
+        CursorRepository(
+            CursorApi(
+                { credentials.read("cookie") },
+                server.url("/"),
+                allowConfiguredOrigin = true,
+            ),
+            cache,
+            credentials,
+            migration,
+        )
 
     @Test
     fun repositoryPickerUsesHourlyCache() = runTest {
@@ -218,5 +284,9 @@ class FakeCache : CacheDao {
 
     override suspend fun clear() {
         entries.value = emptyMap()
+    }
+
+    override suspend fun clearExcept(keep: String) {
+        entries.value = entries.value.filterKeys { it == keep }
     }
 }

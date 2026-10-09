@@ -40,10 +40,9 @@ class ViewModelTest {
         val repository =
             CursorRepository(
                 CursorApi(
-                    { credentials.read("api") },
                     { credentials.read("cookie") },
                     server.url("/"),
-                    server.url("/"),
+                    allowConfiguredOrigin = true,
                 ),
                 FakeCache(),
                 credentials,

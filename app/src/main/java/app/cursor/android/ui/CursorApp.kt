@@ -87,6 +87,7 @@ import app.cursor.android.data.Preferences
 import app.cursor.android.data.items
 import app.cursor.android.data.string
 import app.cursor.android.domain.UsageSnapshot
+import app.cursor.android.domain.isGoogleSignInHost
 import app.cursor.android.domain.isTrustedSignInUrl
 import app.cursor.android.system.UsageNotifications
 import app.cursor.android.system.UsageOverlayService
@@ -134,7 +135,7 @@ fun CursorApp(
             LocaleListCompat.forLanguageTags(state.preferences.language)
         )
     }
-    LaunchedEffect(state.local.connected) { if (state.local.connected) model.refresh() }
+    LaunchedEffect(state.local.webConnected) { if (state.local.webConnected) model.refresh() }
     LaunchedEffect(
         state.local.webConnected,
         state.preferences.paused,
@@ -237,7 +238,7 @@ fun CursorApp(
                                             model,
                                             { backStack.add(Destination("create")) },
                                             { backStack.add(Destination("detail", it)) },
-                                            { backStack.add(Destination("settings")) },
+                                            { backStack.add(Destination("signin")) },
                                             { usageOpen = true },
                                         )
                                     "create" ->
@@ -290,7 +291,7 @@ private fun Inbox(
     model: CursorViewModel,
     create: () -> Unit,
     detail: (String) -> Unit,
-    settings: () -> Unit,
+    signIn: () -> Unit,
     usage: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -311,7 +312,7 @@ private fun Inbox(
             )
         }
         item { UsageCapsule(state.usage, state.preferences, usage) }
-        if (!state.local.connected) {
+        if (!state.local.webConnected) {
             item {
                 CursorCard {
                     Column(
@@ -324,12 +325,12 @@ private fun Inbox(
                         )
                         Description(
                             label(
-                                "Use a Cursor API key to manage agents. Connect a web session " +
-                                    "separately to view account usage.",
-                                "使用 Cursor API Key 管理 Agent，另行连接网页会话以查看账户用量。",
+                                "Sign in with the Cursor web session on this device. " +
+                                    "Email codes and GitHub stay in the app.",
+                                "在本机使用 Cursor 网页会话登录。邮箱验证码和 GitHub 留在应用内。",
                             )
                         )
-                        CursorButton(onClick = settings) { Text(label("Get started", "开始使用")) }
+                        CursorButton(onClick = signIn) { Text(label("Get started", "开始使用")) }
                     }
                 }
             }
@@ -893,7 +894,6 @@ private fun SettingsScreen(
     environment: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    var key by remember { mutableStateOf("") }
     var signOut by remember { mutableStateOf(false) }
     val permission =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -905,59 +905,18 @@ private fun SettingsScreen(
     ) {
         Text(label("Make it yours.", "按你的方式使用。"), style = MaterialTheme.typography.headlineMedium)
         Section(label("CONNECTIONS", "连接"))
-        Text(
-            label("Cloud Agents API", "Cloud Agents API"),
-            style = MaterialTheme.typography.titleMedium,
-        )
+        Text(label("Web session", "网页会话"), style = MaterialTheme.typography.titleMedium)
         Description(
-            if (state.local.connected) label("API key connected", "已连接 API Key")
+            if (state.local.webConnected)
+                label(
+                    "Signed in with the cursor.com session stored on this device.",
+                    "已使用保存在本设备的 cursor.com 会话登录。",
+                )
             else
                 label(
-                    "Create a key in Cursor Dashboard. It stays encrypted on this device.",
-                    "在 Cursor Dashboard 创建 Key，它将加密保存在本设备。",
+                    "Sign in inside the app. The session cookie stays encrypted on this device.",
+                    "在应用内登录。会话 cookie 会加密保存在本设备。",
                 )
-        )
-        if (!state.local.connected) {
-            CursorTextField(
-                key,
-                { key = it },
-                Modifier.fillMaxWidth(),
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        autoCorrectEnabled = false,
-                    ),
-                label = { Text("API key") },
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CursorButton(
-                    onClick = {
-                        model.connect(key)
-                        key = ""
-                    },
-                    enabled = key.isNotBlank(),
-                ) {
-                    Text(label("Connect API", "连接 API"))
-                }
-                CursorTextButton(
-                    onClick = {
-                        openHttps(context, "https://cursor.com/dashboard?tab=integrations")
-                    },
-                    tone = CursorTone.Link,
-                ) {
-                    Text(label("Get a key ↗", "获取 Key ↗"))
-                }
-            }
-        }
-        Text(label("Account usage", "账户用量"), style = MaterialTheme.typography.titleMedium)
-        Description(
-            label(
-                "Usage uses a separate Cursor web session, not your API key. " +
-                    "Connect the same account yourself; identities are not assumed to match.",
-                "用量使用独立的 Cursor 网页会话，不使用 API Key。请自行连接同一账户，客户端不会假定身份一致。",
-            )
         )
         CursorSecondaryButton(onClick = signIn) {
             Text(
@@ -965,7 +924,7 @@ private fun SettingsScreen(
                 else label("Connect web session", "连接网页会话")
             )
         }
-        if (state.local.connected || state.local.webConnected) {
+        if (state.local.webConnected) {
             CursorTextButton(onClick = { signOut = true }) {
                 Text(label("Disconnect & clear local data", "断开并清除本地数据"))
             }
@@ -1068,7 +1027,7 @@ private fun SettingsScreen(
                 label = "简体中文",
             )
         }
-        if (state.local.connected) {
+        if (state.local.webConnected) {
             Section(label("CLOUD ENVIRONMENTS", "云端环境"))
             CursorSecondaryButton(onClick = model::catalog) {
                 Text(label("Load environments", "加载环境"))
@@ -1138,6 +1097,7 @@ private fun Toggle(text: String, checked: Boolean, onChange: (Boolean) -> Unit) 
 @Composable
 private fun WebSignIn(model: CursorViewModel, back: () -> Unit) {
     val context = LocalContext.current
+    var googleBlocked by remember { mutableStateOf(false) }
     val web = remember {
         WebView(context).apply {
             settings.javaScriptEnabled = true
@@ -1154,6 +1114,10 @@ private fun WebSignIn(model: CursorViewModel, back: () -> Unit) {
                     ): Boolean {
                         val uri = request.url
                         if (uri.scheme != "https") return true
+                        if (uri.host?.let(::isGoogleSignInHost) == true) {
+                            googleBlocked = true
+                            return true
+                        }
                         val trusted = isTrustedSignInUrl(uri.toString())
                         if (!trusted) openHttps(context, uri.toString())
                         return !trusted
@@ -1171,25 +1135,54 @@ private fun WebSignIn(model: CursorViewModel, back: () -> Unit) {
     Column {
         Note(
             label(
-                "Sign in, then connect. Some SSO providers reject embedded browsers; " +
-                    "API key mode remains available for agents.",
-                "登录后点击连接。部分 SSO 不支持内嵌浏览器，Agent 仍可通过 API Key 使用。",
+                "Sign in with an email code or GitHub, then connect this session.",
+                "用邮箱验证码或 GitHub 登录，然后连接此会话。",
             ),
             Modifier.padding(16.dp),
         )
+        if (googleBlocked) {
+            Column(
+                Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    label(
+                        "Google sign-in is not available here. Use an email code or GitHub. " +
+                            "If this Cursor account only has Google, add an email login in the " +
+                            "system browser, then come back and use the code.",
+                        "应用内不能使用 Google 登录。请用邮箱验证码或 GitHub。" +
+                            "如果账号只有 Google，请先在系统浏览器里给 Cursor 账号加上邮箱登录，" +
+                            "再回到这里用验证码。",
+                    )
+                )
+                CursorSecondaryButton(
+                    onClick = { openHttps(context, "https://cursor.com/dashboard") }
+                ) {
+                    Text(label("Add email in the browser ↗", "在浏览器中添加邮箱 ↗"))
+                }
+                CursorTextButton(
+                    onClick = {
+                        googleBlocked = false
+                        web.loadUrl("https://cursor.com/agents")
+                    }
+                ) {
+                    Text(label("Back to sign in", "返回登录"))
+                }
+            }
+        }
         Row(Modifier.padding(horizontal = 16.dp)) {
             CursorButton(
                 onClick = {
                     val cookie =
                         CookieManager.getInstance().getCookie("https://cursor.com").orEmpty()
-                    model.connectWeb(cookie)
-                    back()
+                    if (cookie.isBlank()) return@CursorButton
+                    model.connectWeb(cookie) { back() }
                 }
             ) {
                 Text(label("Connect this session", "连接此会话"))
             }
         }
-        AndroidView(factory = { web }, modifier = Modifier.fillMaxSize())
+        if (!googleBlocked) AndroidView(factory = { web }, modifier = Modifier.fillMaxSize())
     }
 }
 
@@ -1369,9 +1362,8 @@ private fun WebSettings(state: UiState, model: CursorViewModel) {
     Section(label("CURSOR WEB DEFAULTS", "CURSOR 网页默认设置"))
     Note(
         label(
-            "Personal web preferences. Team policies can override them; " +
-                "API create options are separate.",
-            "个人网页偏好，可能受团队策略覆盖；API 新建选项与此独立。",
+            "Personal web preferences. Team policies can override them.",
+            "个人网页偏好，可能受团队策略覆盖。",
         )
     )
     CursorSecondaryButton(onClick = { model.webSettings() }) {

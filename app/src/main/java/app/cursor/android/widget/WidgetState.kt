@@ -63,7 +63,7 @@ data class WidgetState(
 
     fun agentStatus(now: Long): String =
         when {
-            !connections.api -> text("Connect API key", "连接 API Key")
+            !connections.web -> text("Sign in", "登录")
             agents == null -> text("No snapshot yet", "暂无快照")
             now - agents.updatedAt > staleAfter ->
                 text("Stale · ", "已过期 · ") + time(agents.updatedAt)
@@ -71,7 +71,7 @@ data class WidgetState(
         }
 
     fun agentRows(): List<WidgetAgent> =
-        if (!connections.api) emptyList()
+        if (!connections.web) emptyList()
         else {
             agents?.agents.orEmpty().mapIndexed { index, agent ->
                 WidgetAgent(

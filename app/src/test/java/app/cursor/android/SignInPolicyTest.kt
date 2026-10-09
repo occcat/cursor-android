@@ -1,5 +1,6 @@
 package app.cursor.android
 
+import app.cursor.android.domain.isGoogleSignInHost
 import app.cursor.android.domain.isTrustedSignInHost
 import app.cursor.android.domain.isTrustedSignInUrl
 import org.junit.Assert.assertFalse
@@ -14,9 +15,19 @@ class SignInPolicyTest {
                 "api.workos.com",
                 "authenticate.cursor.sh",
                 "authenticator.cursor.sh",
-                "ACCOUNTS.GOOGLE.COM",
+                "github.com",
             )
             .forEach { assertTrue(isTrustedSignInHost(it)) }
+    }
+
+    @Test
+    fun googleHostIsRejectedAndGithubStaysInsideTheSession() {
+        assertTrue(isGoogleSignInHost("accounts.google.com"))
+        assertTrue(isGoogleSignInHost("ACCOUNTS.GOOGLE.COM"))
+        assertFalse(isTrustedSignInHost("accounts.google.com"))
+        assertFalse(isTrustedSignInUrl("https://accounts.google.com/o/oauth2/v2/auth"))
+        assertTrue(isTrustedSignInHost("github.com"))
+        assertTrue(isTrustedSignInHost("authenticator.cursor.sh"))
     }
 
     @Test

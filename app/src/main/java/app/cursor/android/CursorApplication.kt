@@ -11,6 +11,8 @@ import app.cursor.android.data.Credentials
 import app.cursor.android.data.CursorApi
 import app.cursor.android.data.CursorDatabase
 import app.cursor.android.data.CursorRepository
+import app.cursor.android.data.PreferenceSessionMigration
+import app.cursor.android.data.SessionMigration
 import app.cursor.android.data.SettingsStore
 import app.cursor.android.data.UserPreferences
 import app.cursor.android.data.WebSessionStore
@@ -25,12 +27,18 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @HiltAndroidApp
 class CursorApplication : Application(), Configuration.Provider {
     @Inject lateinit var repository: CursorRepository
     @Inject lateinit var settings: SettingsStore
     @Inject lateinit var workerFactory: HiltWorkerFactory
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
@@ -40,6 +48,7 @@ class CursorApplication : Application(), Configuration.Provider {
         UsageNotifications.createChannels(this)
         UsageSyncWorker.schedule(this)
         WidgetUpdates.observe(this)
+        appScope.launch { repository.restore() }
     }
 }
 
@@ -57,13 +66,22 @@ object ApplicationModule {
 
     @Provides
     @Singleton
-    fun api(credentials: Credentials): CursorApi =
-        CursorApi({ credentials.read("api") }, { credentials.read("cookie") })
+    fun api(credentials: Credentials): CursorApi = CursorApi({ credentials.read("cookie") })
 
     @Provides
     @Singleton
-    fun repository(api: CursorApi, cache: CacheDao, credentials: Credentials): CursorRepository =
-        CursorRepository(api, cache, credentials, WebSessionStore::clear)
+    fun migration(@ApplicationContext context: Context): SessionMigration =
+        PreferenceSessionMigration(context)
+
+    @Provides
+    @Singleton
+    fun repository(
+        api: CursorApi,
+        cache: CacheDao,
+        credentials: Credentials,
+        migration: SessionMigration,
+    ): CursorRepository =
+        CursorRepository(api, cache, credentials, migration, WebSessionStore::clear)
 
     @Provides fun userPreferences(settings: SettingsStore): UserPreferences = settings
 
