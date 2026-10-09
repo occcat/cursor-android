@@ -9,7 +9,7 @@
     <application android:name=".CursorApplication" android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false" android:usesCleartextTraffic="false"
-        android:icon="@drawable/ic_cursor" android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher" android:label="@string/app_name"
         android:localeConfig="@xml/locales_config" android:theme="@style/AppTheme"
         android:supportsRtl="true">
         <provider android:name="androidx.startup.InitializationProvider"

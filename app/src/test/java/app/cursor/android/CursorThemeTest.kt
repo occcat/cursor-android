@@ -63,6 +63,7 @@ class CursorThemeTest {
                 "cursor_text_secondary" to CursorColors::textSecondary,
                 "cursor_border02" to CursorColors::border02,
                 "cursor_accent" to CursorColors::accent,
+                "cursor_launcher_background" to { _: CursorColors -> CursorColors.dark.bg },
             )
         listOf("values" to CursorColors.light, "values-night" to CursorColors.dark).forEach {
             (folder, colors) ->
