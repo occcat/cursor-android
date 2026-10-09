@@ -40,13 +40,14 @@ Cursor Cloud Agents 的原生 Android 伴侣，让两个用量池一目了然。
 ## 原生界面
 
 <p align="center">
-  <img src="docs/assets/android-connections.png" width="220" alt="独立 API key 与网页登录设置，无已输入凭据">
-  <img src="docs/assets/android-usage-signed-out.png" width="220" alt="未登录时，两个额度池保留未知值位置">
-  <img src="docs/assets/android-overlay-fixture.png" width="220" alt="Android 启动器上的原生悬浮胶囊，使用合成测试数据">
+  <img src="docs/assets/android-connections.png" width="220" alt="深色主题下独立的 API key 与网页登录设置，无已输入凭据">
+  <img src="docs/assets/android-usage-signed-out.png" width="220" alt="深色主题下未登录的收件箱，用量胶囊中两个额度池保留未知值">
+  <img src="docs/assets/android-overlay-fixture.png" width="220" alt="深色主题下 Android 启动器上的原生悬浮胶囊，使用合成测试数据">
 </p>
 
-*API 36 模拟器、320 dp 宽度下的实际截图。依次为连接设置、未登录用量、原生悬浮胶囊。
-悬浮窗的 68% / 39% 来自注入的测试数据，不是真实账户额度；截图未使用账户凭据或付费运行。*
+*API 36 模拟器实拍（1080 × 1920 px，320 dp 宽），深色系统主题。依次为连接设置、收件箱胶囊中的
+未登录用量、原生悬浮胶囊。应用跟随系统浅色/深色设置，[小组件说明](docs/design/home-screen-widgets.md)
+中为浅色主题截图。悬浮窗的 68% / 39% 来自注入的测试数据，不是真实账户额度；截图未使用账户凭据或付费运行。*
 
 ## 开始使用
 

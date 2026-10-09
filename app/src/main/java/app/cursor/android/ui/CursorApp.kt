@@ -14,19 +14,24 @@ import android.webkit.WebViewClient
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -34,26 +39,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -69,10 +65,13 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -102,8 +101,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-private val frost = Color(0xFF81A1C1)
-
 @Serializable private data class Destination(val screen: String, val id: String = "") : NavKey
 
 @Composable
@@ -117,42 +114,6 @@ fun CursorApp(
     widgetDestination: WidgetDestination? = null,
     consumeWidgetDestination: () -> Unit = {},
 ) {
-    val dark = isSystemInDarkTheme()
-    val colors =
-        if (dark)
-            darkColorScheme(
-                primary = Color(0xFFF0F0F0),
-                onPrimary = Color(0xFF181818),
-                secondary = Color(0xFFF0F0F0),
-                secondaryContainer = Color(0xFF333333),
-                onSecondaryContainer = Color(0xFFF0F0F0),
-                outline = Color(0xFF727272),
-                surfaceContainerLow = Color(0xFF242424),
-                surfaceContainerHigh = Color(0xFF292929),
-                surfaceContainerHighest = Color(0xFF333333),
-                onSurfaceVariant = Color(0xFF9A9A9A),
-                background = Color(0xFF181818),
-                surface = Color(0xFF181818),
-                surfaceContainer = Color(0xFF242424),
-                onSurface = Color(0xFFF0F0F0),
-            )
-        else
-            lightColorScheme(
-                primary = Color(0xFF141414),
-                onPrimary = Color.White,
-                secondary = Color(0xFF141414),
-                secondaryContainer = Color(0xFFE4E4DF),
-                onSecondaryContainer = Color(0xFF141414),
-                outline = Color(0xFF888888),
-                surfaceContainerLow = Color(0xFFF0F0EC),
-                surfaceContainerHigh = Color(0xFFE9E9E5),
-                surfaceContainerHighest = Color(0xFFE4E4DF),
-                onSurfaceVariant = Color(0xFF717171),
-                background = Color(0xFFFCFCFC),
-                surface = Color(0xFFFCFCFC),
-                surfaceContainer = Color(0xFFF0F0EC),
-                onSurface = Color(0xFF141414),
-            )
     val backStack = rememberNavBackStack(Destination("inbox"))
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -192,36 +153,74 @@ fun CursorApp(
     LaunchedEffect(state.usage, state.preferences) {
         UsageNotifications.update(context, state.usage, state.preferences)
     }
-    MaterialTheme(colorScheme = colors) {
+    CursorTheme {
+        val colors = CursorTheme.colors
+        val toolbarPadding = PaddingValues(horizontal = 8.dp)
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text("Cursor Android", fontSize = 19.sp) },
-                    navigationIcon = {
-                        if (backStack.size > 1)
-                            TextButton(onClick = { backStack.removeLastOrNull() }) {
-                                Text(label("Back", "返回"))
+                Column {
+                    TopAppBar(
+                        title = {
+                            Text("Cursor Android", style = MaterialTheme.typography.titleSmall)
+                        },
+                        navigationIcon = {
+                            if (backStack.size > 1)
+                                CursorTextButton(
+                                    onClick = { backStack.removeLastOrNull() },
+                                    contentPadding = toolbarPadding,
+                                ) {
+                                    Text(label("Back", "返回"))
+                                }
+                        },
+                        actions = {
+                            CursorTextButton(
+                                onClick = { usageOpen = true },
+                                contentPadding = toolbarPadding,
+                            ) {
+                                Text(label("Usage", "用量"))
                             }
-                    },
-                    actions = {
-                        TextButton(onClick = { usageOpen = true }) { Text(label("Usage", "用量")) }
-                        TextButton(onClick = { backStack.add(Destination("settings")) }) {
-                            Text(label("Settings", "设置"))
-                        }
-                    },
-                )
+                            CursorTextButton(
+                                onClick = { backStack.add(Destination("settings")) },
+                                contentPadding = toolbarPadding,
+                            ) {
+                                Text(label("Settings", "设置"))
+                            }
+                        },
+                        expandedHeight = 56.dp,
+                        colors =
+                            TopAppBarDefaults.topAppBarColors(
+                                containerColor = colors.bg,
+                                scrolledContainerColor = colors.bg,
+                                titleContentColor = colors.fg,
+                            ),
+                    )
+                    HorizontalDivider(color = colors.border02)
+                }
             }
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
-                if (state.local.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (state.local.busy)
+                    LinearProgressIndicator(
+                        Modifier.fillMaxWidth().height(2.dp),
+                        color = colors.accent,
+                        trackColor = Color.Transparent,
+                        gapSize = 0.dp,
+                    )
                 if (state.local.error != null) {
-                    Surface(color = MaterialTheme.colorScheme.errorContainer) {
+                    Surface(color = colors.cardWarm, contentColor = colors.fg) {
                         Row(
-                            Modifier.fillMaxWidth().padding(12.dp),
+                            Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(state.local.error, Modifier.weight(1f), fontSize = 13.sp)
-                            TextButton(onClick = model::clearError) { Text(label("Dismiss", "关闭")) }
+                            Box(Modifier.width(2.dp).fillMaxHeight().background(colors.error))
+                            Text(
+                                state.local.error,
+                                Modifier.weight(1f).padding(12.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            CursorTextButton(onClick = model::clearError) {
+                                Text(label("Dismiss", "关闭"))
+                            }
                         }
                     }
                 }
@@ -266,7 +265,15 @@ fun CursorApp(
             }
         }
         if (usageOpen)
-            ModalBottomSheet(onDismissRequest = { usageOpen = false }) {
+            ModalBottomSheet(
+                onDismissRequest = { usageOpen = false },
+                containerColor = CursorTheme.colors.bg,
+                contentColor = CursorTheme.colors.fg,
+                tonalElevation = 0.dp,
+                dragHandle = {
+                    BottomSheetDefaults.DragHandle(color = CursorTheme.colors.border025)
+                },
+            ) {
                 UsagePanel(
                     state.usage,
                     state.preferences,
@@ -296,34 +303,33 @@ private fun Inbox(
             Text(
                 label("Your work.\nWithin reach.", "你的工作，\n随时掌握。"),
                 style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Medium,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 label("Cloud agents, wherever you are.", "随时随地，连接云端 Agent。"),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = CursorTheme.colors.textSecondary,
             )
         }
         item { UsageCapsule(state.usage, state.preferences, usage) }
         if (!state.local.connected) {
             item {
-                Card {
+                CursorCard {
                     Column(
-                        Modifier.padding(20.dp),
+                        Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
                             label("Connect your workspace", "连接你的工作区"),
                             style = MaterialTheme.typography.titleLarge,
                         )
-                        Text(
+                        Description(
                             label(
                                 "Use a Cursor API key to manage agents. Connect a web session " +
                                     "separately to view account usage.",
                                 "使用 Cursor API Key 管理 Agent，另行连接网页会话以查看账户用量。",
                             )
                         )
-                        Button(onClick = settings) { Text(label("Get started", "开始使用")) }
+                        CursorButton(onClick = settings) { Text(label("Get started", "开始使用")) }
                     }
                 }
             }
@@ -331,25 +337,23 @@ private fun Inbox(
         } else {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = create, enabled = !state.local.busy) {
+                    CursorButton(onClick = create, enabled = !state.local.busy) {
                         Text(label("+ New agent", "+ 新建 Agent"))
                     }
-                    OutlinedButton(onClick = { model.refresh() }) { Text(label("Refresh", "刷新")) }
+                    CursorSecondaryButton(onClick = { model.refresh() }) {
+                        Text(label("Refresh", "刷新"))
+                    }
                 }
             }
             item {
-                OutlinedTextField(
+                CursorTextField(
                     query,
                     { query = it },
                     Modifier.fillMaxWidth(),
                     label = { Text(label("Search agents", "搜索 Agent")) },
                     singleLine = true,
                 )
-                FilterChip(
-                    archived,
-                    { archived = !archived },
-                    label = { Text(label("Include archived", "包含归档")) },
-                )
+                CursorChip(archived, { archived = !archived }, label("Include archived", "包含归档"))
             }
             val agents =
                 state.agents?.items().orEmpty().filter {
@@ -357,47 +361,45 @@ private fun Inbox(
                         it.string("name").contains(query, ignoreCase = true)
                 }
             if (agents.isEmpty())
-                item { Text(label("No agents here yet. Start with a task.", "暂无 Agent，创建一个任务开始。")) }
+                item {
+                    Description(
+                        label("No agents here yet. Start with a task.", "暂无 Agent，创建一个任务开始。")
+                    )
+                }
             items(agents, key = { it.string("id") }) { agent ->
-                Card(onClick = { detail(agent.string("id")) }, Modifier.fillMaxWidth()) {
+                CursorCard(Modifier.fillMaxWidth(), onClick = { detail(agent.string("id")) }) {
                     Column(
-                        Modifier.padding(18.dp),
+                        Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
                             agent.string("name").ifBlank { label("Untitled agent", "未命名 Agent") },
                             style = MaterialTheme.typography.titleMedium,
                         )
-                        Text(
-                            agent.string("status"),
-                            color = frost,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                        )
-                        Text(
-                            agent.string("updatedAt"),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            itemVerticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AgentStatus(agent.string("status"))
+                            Note(agent.string("updatedAt"))
+                        }
                     }
                 }
             }
             if (!state.agents?.string("nextCursor").isNullOrBlank())
                 item {
-                    OutlinedButton(onClick = { model.refresh(true) }) {
+                    CursorSecondaryButton(onClick = { model.refresh(true) }) {
                         Text(label("Load more", "加载更多"))
                     }
                 }
             item { FeatureLinks() }
         }
         item {
-            Text(
+            Note(
                 label(
                     "Independent community client. Not affiliated with Cursor.",
                     "独立社区客户端，与 Cursor 官方无关联。",
-                ),
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             )
         }
     }
@@ -411,14 +413,13 @@ private fun FeatureLinks() {
             label("Continue on Cursor Web", "在 Cursor 网页中继续"),
             style = MaterialTheme.typography.titleMedium,
         )
-        Text(
+        Description(
             label(
                 "Automations, Codebase, Desktop, Terminal and Files open in your browser.",
                 "自动化、Codebase、桌面、终端及文件功能将在浏览器中打开。",
-            ),
-            fontSize = 13.sp,
+            )
         )
-        OutlinedButton(onClick = { openHttps(context, "https://cursor.com/agents") }) {
+        CursorSecondaryButton(onClick = { openHttps(context, "https://cursor.com/agents") }) {
             Text(label("Open Cursor Web ↗", "打开 Cursor 网页 ↗"))
         }
     }
@@ -427,45 +428,55 @@ private fun FeatureLinks() {
 @Composable
 fun UsageCapsule(usage: UsageSnapshot?, preferences: Preferences, click: () -> Unit) {
     if (!preferences.cursor && !preferences.other) return
+    val colors = CursorTheme.colors
     val remaining = label("remaining", "剩余")
     val used = label("used", "已用")
     val mode = if (preferences.remaining) remaining else used
+    val cursorValue = usageValue(usage, true, preferences.remaining)
+    val otherValue = usageValue(usage, false, preferences.remaining)
+    val figures = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
     Surface(
         onClick = click,
         shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        color = colors.card,
+        contentColor = colors.fg,
+        border = BorderStroke(1.dp, colors.border02),
     ) {
         FlowRow(
             Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
             if (preferences.cursor)
                 Text(
-                    "● Cursor ${usageValue(usage, true, preferences.remaining)}",
-                    color = MaterialTheme.colorScheme.onSurface,
+                    pool("●", colors.poolCursor, "Cursor $cursorValue"),
+                    style = figures,
                     modifier =
                         Modifier.semantics {
-                            contentDescription =
-                                "Cursor Model " +
-                                    usageValue(usage, true, preferences.remaining) +
-                                    " $mode"
+                            contentDescription = "Cursor Model $cursorValue $mode"
                         },
                 )
             if (preferences.other)
                 Text(
-                    "○ Other ${usageValue(usage, false, preferences.remaining)}",
+                    pool("○", colors.poolOther, "Other $otherValue"),
+                    style = figures,
                     modifier =
                         Modifier.semantics {
-                            contentDescription =
-                                "Other Model " +
-                                    usageValue(usage, false, preferences.remaining) +
-                                    " $mode"
+                            contentDescription = "Other Model $otherValue $mode"
                         },
                 )
-            Text(mode, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Note(mode)
         }
     }
 }
+
+/** Colors only the pool marker so the capsule text stays identical for tests and TalkBack. */
+private fun pool(marker: String, tint: Color, text: String): AnnotatedString =
+    buildAnnotatedString {
+        withStyle(SpanStyle(color = tint)) { append(marker) }
+        append(" ")
+        append(text)
+    }
 
 fun usageValue(snapshot: UsageSnapshot?, cursor: Boolean, remaining: Boolean): String =
     if (snapshot?.unlimited == true) "∞"
@@ -478,40 +489,49 @@ private fun UsagePanel(
     connected: Boolean,
     refresh: () -> Unit,
 ) {
+    val colors = CursorTheme.colors
     Column(
         Modifier.padding(24.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Text("Cursor Usage", style = MaterialTheme.typography.headlineSmall)
-        Text(
+        Description(
             if (connected) label("Account quota · last successful snapshot", "账户额度 · 最近成功快照")
             else label("Connect a web session in Settings to view usage.", "在设置中连接网页会话以查看用量。")
         )
         val now = System.currentTimeMillis()
         listOf(true, false).forEach { cursor ->
             if (if (cursor) preferences.cursor else preferences.other) {
+                val tint = if (cursor) colors.poolCursor else colors.poolOther
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(if (cursor) "Cursor Model" else "Other Model")
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Dot(tint)
+                            Text(if (cursor) "Cursor Model" else "Other Model")
+                        }
                         Text(
                             usageValue(usage, cursor, preferences.remaining),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontFamily = FontFamily.Monospace,
+                            style =
+                                MaterialTheme.typography.headlineSmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontFeatureSettings = "tnum",
+                                ),
                         )
                     }
-                    Text(
+                    Note(
                         if (preferences.remaining) label("Remaining", "剩余额度")
-                        else label("Used", "已用额度"),
-                        fontSize = 12.sp,
+                        else label("Used", "已用额度")
                     )
                     val value = usage?.value(cursor, preferences.remaining)
                     if (value != null && !usage.unlimited) {
-                        LinearProgressIndicator(
-                            progress = { (value / 100).toFloat() },
-                            modifier = Modifier.fillMaxWidth().height(8.dp),
-                            color =
-                                if (cursor) frost else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        CursorProgress((value / 100).toFloat(), tint)
                         val pace = if (preferences.pace) usage.pace(now) else null
                         if (pace != null) {
                             val raw = if (cursor) usage.cursorUsed else usage.otherUsed
@@ -521,11 +541,10 @@ private fun UsagePanel(
                                     -1 -> label("Slower than billing pace", "使用慢于账单周期节奏")
                                     else -> label("On pace", "节奏正常")
                                 }
-                            Text(
+                            Note(
                                 text +
                                     if (pace.estimated) label(" · estimated cycle", " · 估算周期")
-                                    else "",
-                                fontSize = 12.sp,
+                                    else ""
                             )
                         }
                     }
@@ -534,20 +553,21 @@ private fun UsagePanel(
         }
         if (usage != null) {
             HorizontalDivider()
-            Text(label("Updated ", "更新于 ") + time(usage.fetchedAt), fontSize = 12.sp)
+            Note(label("Updated ", "更新于 ") + time(usage.fetchedAt))
             if (!usage.unlimited && usage.cycleEnd != null) {
-                Text(label("Resets ", "重置时间 ") + time(usage.cycleEnd), fontSize = 12.sp)
+                Note(label("Resets ", "重置时间 ") + time(usage.cycleEnd))
             }
             if (usage.pendingReset(now)) Text(label("Awaiting new billing cycle data", "等待新账单周期数据"))
         }
         if (preferences.paused) Text(label("Automatic refresh paused", "自动刷新已暂停"))
-        Button(onClick = refresh, enabled = connected) { Text(label("Refresh usage", "刷新用量")) }
-        Text(
+        CursorButton(onClick = refresh, enabled = connected) {
+            Text(label("Refresh usage", "刷新用量"))
+        }
+        Note(
             label(
                 "Background updates are scheduled by Android, at least 15 minutes apart.",
                 "后台更新由 Android 调度，间隔至少 15 分钟。",
-            ),
-            fontSize = 12.sp,
+            )
         )
         Spacer(Modifier.height(20.dp))
     }
@@ -580,9 +600,10 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
             style = MaterialTheme.typography.headlineMedium,
         )
         Text(
-            label("Start a cloud agent with your own Cursor account.", "使用你的 Cursor 账户启动云端 Agent。")
+            label("Start a cloud agent with your own Cursor account.", "使用你的 Cursor 账户启动云端 Agent。"),
+            color = CursorTheme.colors.textSecondary,
         )
-        OutlinedTextField(
+        CursorTextField(
             prompt,
             { prompt = it },
             Modifier.fillMaxWidth(),
@@ -590,7 +611,7 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
             label = { Text(label("Describe a task", "描述任务")) },
         )
         Text(label("Workspace", "工作区"), style = MaterialTheme.typography.titleMedium)
-        OutlinedTextField(
+        CursorTextField(
             repository,
             { repository = it },
             Modifier.fillMaxWidth(),
@@ -602,44 +623,44 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             state.local.repositories.take(10).forEach { repo ->
-                AssistChip(
+                CursorActionChip(
                     onClick = {
                         repository = repo.string("url")
                         environment = ""
                     },
-                    label = { Text(repo.string("url").substringAfterLast('/')) },
+                    label = repo.string("url").substringAfterLast('/'),
                 )
             }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            FilterChip(
+            CursorChip(
                 environment.isBlank(),
                 { environment = "" },
-                label = { Text(label("Default environment", "默认环境")) },
+                label = label("Default environment", "默认环境"),
             )
             state.local.environments.forEach { env ->
-                FilterChip(
+                CursorChip(
                     environment == env.string("name"),
                     {
                         environment = env.string("name")
                         repository = ""
                     },
-                    label = { Text(env.string("name")) },
+                    label = env.string("name"),
                 )
             }
         }
         Text(label("Model", "模型"), style = MaterialTheme.typography.titleMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            FilterChip(
+            CursorChip(
                 selectedModel.isBlank(),
                 { selectedModel = "" },
-                label = { Text(label("Account default", "账户默认")) },
+                label = label("Account default", "账户默认"),
             )
             state.local.models.forEach { item ->
-                FilterChip(
+                CursorChip(
                     selectedModel == item.string("id"),
                     { selectedModel = item.string("id") },
-                    label = { Text(item.string("displayName").ifBlank { item.string("id") }) },
+                    label = item.string("displayName").ifBlank { item.string("id") },
                 )
             }
         }
@@ -647,7 +668,7 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
         Toggle(label("Create a pull request automatically", "自动创建 Pull Request"), autoPr) {
             autoPr = it
         }
-        Button(
+        CursorButton(
             onClick = {
                 model.create(
                     prompt,
@@ -664,12 +685,11 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
         ) {
             Text(label("Start agent →", "启动 Agent →"))
         }
-        Text(
+        Note(
             label(
                 "Runs may consume your Cursor allowance. Sending is never retried automatically.",
                 "运行可能消耗 Cursor 额度，发送操作不会自动重试。",
-            ),
-            fontSize = 12.sp,
+            )
         )
         Spacer(Modifier.height(20.dp))
     }
@@ -688,9 +708,9 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
     DisposableEffect(id) { onDispose { model.stopWatching() } }
     val agent = state.local.detail?.takeIf { it.string("id") == id }
     if (agent == null) {
-        Column(Modifier.padding(20.dp)) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(label("Loading this workspace…", "正在加载此工作区…"))
-            OutlinedButton(onClick = { model.detail(id) }) { Text(label("Retry", "重试")) }
+            CursorSecondaryButton(onClick = { model.detail(id) }) { Text(label("Retry", "重试")) }
         }
         return
     }
@@ -703,77 +723,80 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
                 agent?.string("name").orEmpty().ifBlank { label("Agent", "Agent") },
                 style = MaterialTheme.typography.headlineMedium,
             )
-            Text(agent?.string("status").orEmpty(), color = frost)
+            Spacer(Modifier.height(8.dp))
+            AgentStatus(agent?.string("status").orEmpty())
         }
         item {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(onClick = { model.detail(id) }, label = { Text(label("Refresh", "刷新")) })
-                AssistChip(
+                CursorActionChip(onClick = { model.detail(id) }, label = label("Refresh", "刷新"))
+                CursorActionChip(
                     onClick = { openHttps(context, "https://cursor.com/agents/$id") },
-                    label = { Text(label("Workspace ↗", "工作区 ↗")) },
+                    label = label("Workspace ↗", "工作区 ↗"),
                 )
-                AssistChip(
+                CursorActionChip(
                     onClick = {
                         showArtifacts = !showArtifacts
                         model.artifacts(id)
                     },
-                    label = { Text(label("Artifacts", "产物")) },
+                    label = label("Artifacts", "产物"),
                 )
-                AssistChip(
+                CursorActionChip(
                     onClick = {
                         confirm =
                             if (agent?.string("status") == "ARCHIVED") "unarchive" else "archive"
                     },
-                    label = {
-                        Text(
-                            if (agent?.string("status") == "ARCHIVED") label("Restore", "恢复")
-                            else label("Archive", "归档")
-                        )
-                    },
+                    label =
+                        if (agent?.string("status") == "ARCHIVED") label("Restore", "恢复")
+                        else label("Archive", "归档"),
                 )
             }
         }
         if (showArtifacts) {
             items(state.local.artifacts) { artifact ->
-                OutlinedButton(
+                CursorSecondaryButton(
                     onClick = {
                         model.artifactUrl(id, artifact.string("path")) { openHttps(context, it) }
-                    }
+                    },
+                    modifier = Modifier.animateItem(fadeInSpec = tween(CursorMotion.slowMillis)),
                 ) {
                     Text(artifact.string("path"))
                 }
             }
             if (state.local.artifacts.isEmpty())
-                item { Text(label("No artifacts returned.", "暂无产物。")) }
+                item { Description(label("No artifacts returned.", "暂无产物。")) }
         }
         if (state.local.streamText.isNotBlank())
             item {
-                Card(
-                    colors =
-                        CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        )
-                ) {
+                CursorCard(Modifier.fillMaxWidth()) {
                     Column(
                         Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(label("Live output", "实时输出"), color = frost, fontSize = 12.sp)
-                        SelectionContainer { Text(state.local.streamText) }
+                        Text(
+                            label("Live output", "实时输出"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CursorTheme.colors.accentText,
+                        )
+                        SelectionContainer {
+                            Text(
+                                state.local.streamText,
+                                style =
+                                    MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        lineHeight = 18.sp,
+                                    ),
+                            )
+                        }
                     }
                 }
             }
         items(state.local.runs, key = { it.string("id") }) { run ->
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    run.string("status") + " · " + run.string("createdAt"),
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Note(run.string("status") + " · " + run.string("createdAt"))
                 if (run.string("result").isNotBlank())
                     SelectionContainer { Text(run.string("result")) }
                 if (run.string("status") in listOf("CREATING", "RUNNING")) {
-                    OutlinedButton(onClick = { confirm = "cancel" }) {
+                    CursorSecondaryButton(onClick = { confirm = "cancel" }) {
                         Text(label("Cancel active run", "取消运行"))
                     }
                 }
@@ -781,21 +804,20 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
             }
         }
         item {
-            Text(
+            Note(
                 label(
                     "Historical prompts are not provided by the public v1 API.",
                     "公开 v1 API 不提供历史用户提示词。",
-                ),
-                fontSize = 12.sp,
+                )
             )
-            OutlinedTextField(
+            CursorTextField(
                 followUp,
                 { followUp = it },
                 Modifier.fillMaxWidth(),
                 minLines = 3,
                 label = { Text(label("Follow up", "继续追问")) },
             )
-            Button(
+            CursorButton(
                 onClick = {
                     model.followUp(id, followUp)
                     followUp = ""
@@ -812,16 +834,13 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
         }
         item { FeatureLinks() }
         item {
-            TextButton(onClick = { confirm = "delete" }) {
-                Text(
-                    label("Delete agent permanently", "永久删除 Agent"),
-                    color = MaterialTheme.colorScheme.error,
-                )
+            CursorTextButton(onClick = { confirm = "delete" }, tone = CursorTone.Danger) {
+                Text(label("Delete agent permanently", "永久删除 Agent"))
             }
         }
     }
     if (confirm != null)
-        AlertDialog(
+        CursorAlertDialog(
             onDismissRequest = { confirm = null },
             title = { Text(label("Confirm agent action", "确认操作")) },
             text = {
@@ -839,9 +858,9 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
                 )
             },
             confirmButton = {
-                TextButton(
+                CursorTextButton(
                     onClick = {
-                        val action = confirm ?: return@TextButton
+                        val action = confirm ?: return@CursorTextButton
                         confirm = null
                         model.agentAction(
                             id,
@@ -854,13 +873,14 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
                         ) {
                             if (action == "delete") back()
                         }
-                    }
+                    },
+                    tone = if (confirm == "delete") CursorTone.Danger else CursorTone.Default,
                 ) {
                     Text(label("Confirm", "确认"))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirm = null }) { Text(label("Keep", "保留")) }
+                CursorTextButton(onClick = { confirm = null }) { Text(label("Keep", "保留")) }
             },
         )
 }
@@ -889,17 +909,16 @@ private fun SettingsScreen(
             label("Cloud Agents API", "Cloud Agents API"),
             style = MaterialTheme.typography.titleMedium,
         )
-        Text(
+        Description(
             if (state.local.connected) label("API key connected", "已连接 API Key")
             else
                 label(
                     "Create a key in Cursor Dashboard. It stays encrypted on this device.",
                     "在 Cursor Dashboard 创建 Key，它将加密保存在本设备。",
-                ),
-            fontSize = 13.sp,
+                )
         )
         if (!state.local.connected) {
-            OutlinedTextField(
+            CursorTextField(
                 key,
                 { key = it },
                 Modifier.fillMaxWidth(),
@@ -913,7 +932,7 @@ private fun SettingsScreen(
                 label = { Text("API key") },
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
+                CursorButton(
                     onClick = {
                         model.connect(key)
                         key = ""
@@ -922,32 +941,32 @@ private fun SettingsScreen(
                 ) {
                     Text(label("Connect API", "连接 API"))
                 }
-                TextButton(
+                CursorTextButton(
                     onClick = {
                         openHttps(context, "https://cursor.com/dashboard?tab=integrations")
-                    }
+                    },
+                    tone = CursorTone.Link,
                 ) {
                     Text(label("Get a key ↗", "获取 Key ↗"))
                 }
             }
         }
         Text(label("Account usage", "账户用量"), style = MaterialTheme.typography.titleMedium)
-        Text(
+        Description(
             label(
                 "Usage uses a separate Cursor web session, not your API key. " +
                     "Connect the same account yourself; identities are not assumed to match.",
                 "用量使用独立的 Cursor 网页会话，不使用 API Key。请自行连接同一账户，客户端不会假定身份一致。",
-            ),
-            fontSize = 13.sp,
+            )
         )
-        OutlinedButton(onClick = signIn) {
+        CursorSecondaryButton(onClick = signIn) {
             Text(
                 if (state.local.webConnected) label("Reconnect web session", "重新连接网页会话")
                 else label("Connect web session", "连接网页会话")
             )
         }
         if (state.local.connected || state.local.webConnected) {
-            TextButton(onClick = { signOut = true }) {
+            CursorTextButton(onClick = { signOut = true }) {
                 Text(label("Disconnect & clear local data", "断开并清除本地数据"))
             }
         }
@@ -967,10 +986,10 @@ private fun SettingsScreen(
         Text(label("Foreground refresh", "前台刷新间隔"))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(30, 60, 120, 300).forEach { seconds ->
-                FilterChip(
+                CursorChip(
                     state.preferences.intervalSeconds == seconds,
                     { model.interval(seconds) },
-                    label = { Text("${seconds}s") },
+                    label = "${seconds}s",
                 )
             }
         }
@@ -980,16 +999,15 @@ private fun SettingsScreen(
                 permission.launch(Manifest.permission.POST_NOTIFICATIONS)
             else model.boolean("notifications", it)
         }
-        Text(
+        Description(
             label(
                 "The status bar shows a monochrome icon. " +
                     "Values appear in the notification drawer; " +
                     "lock-screen details stay private.",
                 "状态栏显示单色图标，具体数值在通知抽屉中展示，锁屏默认隐藏。",
-            ),
-            fontSize = 13.sp,
+            )
         )
-        OutlinedButton(
+        CursorSecondaryButton(
             onClick = {
                 if (!Settings.canDrawOverlays(context)) {
                     context.startActivity(
@@ -1010,27 +1028,25 @@ private fun SettingsScreen(
         ) {
             Text(label("Start floating capsule", "启动悬浮胶囊"))
         }
-        TextButton(
+        CursorTextButton(
             onClick = { context.stopService(Intent(context, UsageOverlayService::class.java)) }
         ) {
             Text(label("Stop floating capsule", "停止悬浮胶囊"))
         }
-        Text(
+        Description(
             label(
                 "Drag to position. Tap to open the app. The capsule displays cached snapshots; " +
                     "Android schedules background refresh. Starting requires overlay permission.",
                 "拖动可调整位置，点击打开应用。胶囊显示缓存快照，后台刷新由 Android 调度，需要悬浮权限。",
-            ),
-            fontSize = 13.sp,
+            )
         )
         Section(label("HOME SCREEN WIDGETS", "桌面小组件"))
-        Text(
+        Description(
             label(
                 "Add Usage, Recent Agents or Quick Actions, then resize on your home screen. " +
                     "Cached snapshots refresh about every 15 minutes when Android permits.",
                 "添加用量、最近会话或快捷操作后，可在桌面调整大小。缓存快照在 Android 允许时约每 15 分钟刷新。",
-            ),
-            fontSize = 13.sp,
+            )
         )
         Toggle(
             label("Show agent titles in widgets", "在小组件显示会话标题"),
@@ -1041,22 +1057,24 @@ private fun SettingsScreen(
         WidgetPicker()
         Section(label("LANGUAGE", "语言"))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
+            CursorChip(
                 state.preferences.language == "en",
                 { model.language("en") },
-                label = { Text("English") },
+                label = "English",
             )
-            FilterChip(
+            CursorChip(
                 state.preferences.language == "zh-CN",
                 { model.language("zh-CN") },
-                label = { Text("简体中文") },
+                label = "简体中文",
             )
         }
         if (state.local.connected) {
             Section(label("CLOUD ENVIRONMENTS", "云端环境"))
-            OutlinedButton(onClick = model::catalog) { Text(label("Load environments", "加载环境")) }
+            CursorSecondaryButton(onClick = model::catalog) {
+                Text(label("Load environments", "加载环境"))
+            }
             state.local.environments.forEach { item ->
-                TextButton(onClick = { environment(item.string("id")) }) {
+                CursorTextButton(onClick = { environment(item.string("id")) }) {
                     Text(item.string("name"))
                 }
             }
@@ -1065,7 +1083,7 @@ private fun SettingsScreen(
         Spacer(Modifier.height(24.dp))
     }
     if (signOut)
-        AlertDialog(
+        CursorAlertDialog(
             onDismissRequest = { signOut = false },
             title = { Text(label("Disconnect this device?", "断开此设备连接？")) },
             text = {
@@ -1077,19 +1095,20 @@ private fun SettingsScreen(
                 )
             },
             confirmButton = {
-                TextButton(
+                CursorTextButton(
                     onClick = {
                         model.disconnect()
                         context.stopService(Intent(context, UsageOverlayService::class.java))
                         UsageNotifications.cancel(context)
                         signOut = false
-                    }
+                    },
+                    tone = CursorTone.Danger,
                 ) {
                     Text(label("Disconnect", "断开连接"))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { signOut = false }) { Text(label("Cancel", "取消")) }
+                CursorTextButton(onClick = { signOut = false }) { Text(label("Cancel", "取消")) }
             },
         )
 }
@@ -1099,9 +1118,8 @@ private fun Section(text: String) {
     HorizontalDivider()
     Text(
         text,
-        fontSize = 11.sp,
-        fontFamily = FontFamily.Monospace,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.labelSmall,
+        color = CursorTheme.colors.textSecondary,
     )
 }
 
@@ -1113,7 +1131,7 @@ private fun Toggle(text: String, checked: Boolean, onChange: (Boolean) -> Unit) 
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(text, Modifier.weight(1f))
-        Switch(checked, onChange)
+        CursorSwitch(checked, onChange)
     }
 }
 
@@ -1151,17 +1169,16 @@ private fun WebSignIn(model: CursorViewModel, back: () -> Unit) {
         }
     }
     Column {
-        Text(
+        Note(
             label(
                 "Sign in, then connect. Some SSO providers reject embedded browsers; " +
                     "API key mode remains available for agents.",
                 "登录后点击连接。部分 SSO 不支持内嵌浏览器，Agent 仍可通过 API Key 使用。",
             ),
             Modifier.padding(16.dp),
-            fontSize = 12.sp,
         )
         Row(Modifier.padding(horizontal = 16.dp)) {
-            Button(
+            CursorButton(
                 onClick = {
                     val cookie =
                         CookieManager.getInstance().getCookie("https://cursor.com").orEmpty()
@@ -1196,13 +1213,13 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text(label("Environment", "环境"), style = MaterialTheme.typography.headlineMedium)
-        OutlinedTextField(
+        CursorTextField(
             name,
             { name = it },
             Modifier.fillMaxWidth(),
             label = { Text(label("Name", "名称")) },
         )
-        OutlinedTextField(
+        CursorTextField(
             configuration,
             {
                 configuration = it
@@ -1213,15 +1230,14 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
             isError = invalidJson,
             label = { Text("environment.json") },
         )
-        Text(
+        Note(
             label(
                 "Saving replaces the full environment configuration. " +
                     "Repositories and owner stay unchanged.",
                 "保存将替换完整环境配置，仓库和所有者保持不变。",
-            ),
-            fontSize = 12.sp,
+            )
         )
-        Button(
+        CursorButton(
             onClick = {
                 invalidJson =
                     runCatching { Json.parseToJsonElement(configuration) is JsonObject }
@@ -1234,27 +1250,28 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
             Text(label("Save environment", "保存环境"))
         }
         Section(label("RUNTIME SECRETS", "运行时密钥"))
-        Text(
+        Note(
             label(
                 "Values cannot be read back. New values are sent once and never cached.",
                 "密钥值无法回读。新值仅发送一次，不存入缓存。",
-            ),
-            fontSize = 12.sp,
+            )
         )
         state.local.secrets.forEach { secret ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(secret.string("name") + " · " + secret.string("type"), Modifier.weight(1f))
-                TextButton(onClick = { pendingDelete = secret }) { Text(label("Delete", "删除")) }
+                CursorTextButton(onClick = { pendingDelete = secret }, tone = CursorTone.Danger) {
+                    Text(label("Delete", "删除"))
+                }
             }
         }
-        OutlinedTextField(
+        CursorTextField(
             secretName,
             { secretName = it },
             Modifier.fillMaxWidth(),
             singleLine = true,
             label = { Text(label("New secret name", "新密钥名称")) },
         )
-        OutlinedTextField(
+        CursorTextField(
             secretValue,
             { secretValue = it },
             Modifier.fillMaxWidth(),
@@ -1263,7 +1280,7 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
                 KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
             label = { Text(label("Secret value", "密钥值")) },
         )
-        Button(
+        CursorButton(
             onClick = {
                 model.secret(
                     id,
@@ -1283,7 +1300,7 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
         }
     }
     if (confirmSave)
-        AlertDialog(
+        CursorAlertDialog(
             onDismissRequest = { confirmSave = false },
             title = { Text(label("Replace configuration?", "替换环境配置？")) },
             text = {
@@ -1295,7 +1312,7 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
                 )
             },
             confirmButton = {
-                TextButton(
+                CursorTextButton(
                     onClick = {
                         confirmSave = false
                         model.saveEnvironment(
@@ -1311,28 +1328,29 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmSave = false }) { Text(label("Cancel", "取消")) }
+                CursorTextButton(onClick = { confirmSave = false }) { Text(label("Cancel", "取消")) }
             },
         )
     if (pendingDelete != null)
-        AlertDialog(
+        CursorAlertDialog(
             onDismissRequest = { pendingDelete = null },
             title = { Text(label("Delete secret version?", "删除密钥版本？")) },
             text = { Text(pendingDelete?.string("name").orEmpty()) },
             confirmButton = {
-                TextButton(
+                CursorTextButton(
                     onClick = {
                         pendingDelete?.let {
                             model.secret(id, it.string("name"), null, it.string("id"))
                         }
                         pendingDelete = null
-                    }
+                    },
+                    tone = CursorTone.Danger,
                 ) {
                     Text(label("Delete", "删除"))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text(label("Cancel", "取消")) }
+                CursorTextButton(onClick = { pendingDelete = null }) { Text(label("Cancel", "取消")) }
             },
         )
 }
@@ -1349,23 +1367,24 @@ private fun WebSettings(state: UiState, model: CursorViewModel) {
         pr = state.local.webSettings?.string("autoCreatePrSetting").orEmpty()
     }
     Section(label("CURSOR WEB DEFAULTS", "CURSOR 网页默认设置"))
-    Text(
+    Note(
         label(
             "Personal web preferences. Team policies can override them; " +
                 "API create options are separate.",
             "个人网页偏好，可能受团队策略覆盖；API 新建选项与此独立。",
-        ),
-        fontSize = 12.sp,
+        )
     )
-    OutlinedButton(onClick = { model.webSettings() }) { Text(label("Load web settings", "加载网页设置")) }
+    CursorSecondaryButton(onClick = { model.webSettings() }) {
+        Text(label("Load web settings", "加载网页设置"))
+    }
     if (state.local.webSettings != null) {
-        OutlinedTextField(
+        CursorTextField(
             prefix,
             { prefix = it },
             Modifier.fillMaxWidth(),
             label = { Text(label("Branch prefix", "分支前缀")) },
         )
-        OutlinedTextField(
+        CursorTextField(
             defaultModel,
             { defaultModel = it },
             Modifier.fillMaxWidth(),
@@ -1373,26 +1392,25 @@ private fun WebSettings(state: UiState, model: CursorViewModel) {
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("ALWAYS", "SINGLE", "NEVER").forEach { option ->
-                FilterChip(
+                CursorChip(
                     pr == "AUTO_CREATE_PR_SETTING_$option",
                     { pr = "AUTO_CREATE_PR_SETTING_$option" },
-                    label = { Text(option.lowercase()) },
+                    label = option.lowercase(),
                 )
             }
         }
-        Text(
+        Note(
             label(
                 "Auto PR: always / single / never, using Cursor’s server values.",
                 "自动 PR：始终 / 单个 / 从不，使用 Cursor 服务端定义。",
-            ),
-            fontSize = 12.sp,
+            )
         )
-        Button(onClick = { confirmation = true }, enabled = !state.local.busy) {
+        CursorButton(onClick = { confirmation = true }, enabled = !state.local.busy) {
             Text(label("Save web defaults", "保存网页默认设置"))
         }
     }
     if (confirmation)
-        AlertDialog(
+        CursorAlertDialog(
             onDismissRequest = { confirmation = false },
             title = { Text(label("Update personal defaults?", "更新个人默认设置？")) },
             text = {
@@ -1404,7 +1422,7 @@ private fun WebSettings(state: UiState, model: CursorViewModel) {
                 )
             },
             confirmButton = {
-                TextButton(
+                CursorTextButton(
                     onClick = {
                         confirmation = false
                         val original = state.local.webSettings
@@ -1427,7 +1445,7 @@ private fun WebSettings(state: UiState, model: CursorViewModel) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmation = false }) { Text(label("Cancel", "取消")) }
+                CursorTextButton(onClick = { confirmation = false }) { Text(label("Cancel", "取消")) }
             },
         )
 }

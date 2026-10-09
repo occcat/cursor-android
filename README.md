@@ -45,14 +45,16 @@ this repository does not currently declare a redistribution license.
 ## Native previews
 
 <p align="center">
-  <img src="docs/assets/android-connections.png" width="220" alt="Native API-key and web-session settings, with no credentials entered">
-  <img src="docs/assets/android-usage-signed-out.png" width="220" alt="Native signed-out usage sheet with two unknown pool slots">
-  <img src="docs/assets/android-overlay-fixture.png" width="220" alt="Native overlay over the Android launcher, showing synthetic fixture percentages">
+  <img src="docs/assets/android-connections.png" width="220" alt="Native API-key and web-session settings in the dark theme, with no credentials entered">
+  <img src="docs/assets/android-usage-signed-out.png" width="220" alt="Native signed-out inbox in the dark theme, with the usage capsule showing two unknown pool values">
+  <img src="docs/assets/android-overlay-fixture.png" width="220" alt="Native floating capsule over the Android launcher in the dark theme, showing synthetic fixture percentages">
 </p>
 
-*Actual API 36 emulator captures at 320 dp: separate connections, signed-out usage, and the
-native overlay. The overlay's 68% / 39% values are injected test fixtures, not live
-account usage. No account credentials or paid Agent run were used for these captures.*
+*Actual API 36 emulator captures (1080 × 1920 px, 320 dp wide) in the dark system theme:
+separate connections, signed-out usage in the inbox capsule, and the native overlay. The app
+follows the system light or dark setting; the [widget guide](docs/design/home-screen-widgets.md)
+shows light-theme captures. The overlay's 68% / 39% values are injected test fixtures, not
+live account usage. No account credentials or paid Agent run were used for these captures.*
 
 ## Try it
 

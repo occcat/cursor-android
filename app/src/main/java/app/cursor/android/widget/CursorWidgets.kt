@@ -24,6 +24,7 @@ import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
+import androidx.glance.color.ColorProvider
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
@@ -37,18 +38,24 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import app.cursor.android.CursorApplication
 import app.cursor.android.data.Connections
 import app.cursor.android.data.Preferences
 import app.cursor.android.system.UsageSyncWorker
+import app.cursor.android.ui.CursorColors
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 
-private val ink = ColorProvider(Color(0xFFEDECEC))
-private val muted = ColorProvider(Color(0xFFAAA79E))
-private val surface = Color(0xFF14120B)
-private val tile = Color(0xFF26241D)
+private val ink = dayNight(CursorColors::fg)
+private val muted = dayNight(CursorColors::textSecondary)
+private val surface = dayNight(CursorColors::bg)
+private val tile = dayNight(CursorColors::card03)
+private val poolCursor = dayNight(CursorColors::poolCursor)
+private val poolOther = dayNight(CursorColors::poolOther)
+
+/** Launchers on API 31+ switch these without a new render when the system theme flips. */
+private fun dayNight(token: (CursorColors) -> Color) =
+    ColorProvider(day = token(CursorColors.light), night = token(CursorColors.dark))
 
 abstract class CursorWidget : GlanceAppWidget() {
     override val stateDefinition = null
@@ -299,8 +306,8 @@ private fun PoolProgress(state: WidgetState, cursor: Boolean) {
         LinearProgressIndicator(
             progress = (value / 100).toFloat(),
             modifier = GlanceModifier.fillMaxWidth().height(4.dp).padding(end = 8.dp),
-            color = ink,
-            backgroundColor = ColorProvider(tile),
+            color = if (cursor) poolCursor else poolOther,
+            backgroundColor = tile,
         )
     }
 }
