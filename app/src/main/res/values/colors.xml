@@ -1,3 +1,5 @@
 <resources>
     <color name="cursor_bg">#F7F7F4</color>
+    <color name="cursor_fg">#26251E</color>
+    <color name="cursor_text_secondary">#676660</color>
 </resources>

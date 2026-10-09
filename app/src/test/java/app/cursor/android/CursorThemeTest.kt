@@ -58,6 +58,8 @@ class CursorThemeTest {
         val tokens: Map<String, (CursorColors) -> Color> =
             mapOf(
                 "cursor_bg" to CursorColors::bg,
+                "cursor_fg" to CursorColors::fg,
+                "cursor_text_secondary" to CursorColors::textSecondary,
             )
         listOf("values" to CursorColors.light, "values-night" to CursorColors.dark).forEach {
             (folder, colors) ->

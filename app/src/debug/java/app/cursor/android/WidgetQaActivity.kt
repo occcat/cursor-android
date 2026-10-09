@@ -20,7 +20,7 @@ class WidgetQaActivity : Activity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(0, 24, 0, 24)
-                setBackgroundColor(Color.rgb(220, 218, 211))
+                setBackgroundColor(Color.rgb(225, 224, 219))
             }
         setContentView(ScrollView(this).apply { addView(content) })
     }
