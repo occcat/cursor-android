@@ -55,7 +55,7 @@ constructor(@Assisted context: Context, @Assisted parameters: WorkerParameters) 
         }
         val agentsAge = now - (container.repository.agentSnapshot.first()?.updatedAt ?: 0)
         if (
-            container.repository.connected &&
+            container.repository.webConnected &&
                 WidgetUpdates.hasAgents(applicationContext) &&
                 (!manual || agentsAge >= 30_000)
         ) {

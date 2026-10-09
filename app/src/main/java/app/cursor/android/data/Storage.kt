@@ -98,6 +98,35 @@ interface CacheDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(entry: CacheEntry)
 
     @Query("DELETE FROM cache") suspend fun clear()
+
+    @Query("DELETE FROM cache WHERE `key` != :keep") suspend fun clearExcept(keep: String)
+}
+
+/** One-time upgrade from the API-key session. User preferences stay in DataStore. */
+interface SessionMigration {
+    fun completed(): Boolean
+
+    fun markCompleted()
+}
+
+class PreferenceSessionMigration(context: Context) : SessionMigration {
+    private val preferences = context.getSharedPreferences("session", Context.MODE_PRIVATE)
+
+    override fun completed(): Boolean = preferences.getBoolean("cookieOnly", false)
+
+    override fun markCompleted() {
+        check(preferences.edit().putBoolean("cookieOnly", true).commit())
+    }
+}
+
+class MemoryMigration(initial: Boolean = false) : SessionMigration {
+    private var done = initial
+
+    override fun completed(): Boolean = done
+
+    override fun markCompleted() {
+        done = true
+    }
 }
 
 @Database(entities = [CacheEntry::class], version = 1, exportSchema = true)

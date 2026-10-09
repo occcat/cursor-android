@@ -63,22 +63,22 @@ class WidgetExperienceTest {
             AgentSnapshot(
                 listOf(
                     Json.parseToJsonElement(
-                            """{"id":"bc-a","name":"Private title","status":"ACTIVE"}"""
+                            """{"bcId":"bc-a","name":"Private title","status":"ACTIVE"}"""
                         )
                         .jsonObject,
                     Json.parseToJsonElement(
-                            """{"id":"bc-b","name":"Another title","status":"IDLE"}"""
+                            """{"bcId":"bc-b","name":"Another title","status":"IDLE"}"""
                         )
                         .jsonObject,
                     Json.parseToJsonElement(
-                            """{"id":"bc-c","name":"Archived title","status":"ARCHIVED"}"""
+                            """{"bcId":"bc-c","name":"Archived title","status":"ARCHIVED"}"""
                         )
                         .jsonObject,
                 ),
                 now,
             ),
             Preferences(),
-            Connections(true, true),
+            Connections(true),
         )
 
     @Test
@@ -105,7 +105,7 @@ class WidgetExperienceTest {
                     UsageWidget(),
                     320,
                     180,
-                    state.copy(connections = Connections(true, false)),
+                    state.copy(connections = Connections(false)),
                     "Expired session fixture",
                 )
             assertFalse(expired.any { it.text.toString().contains("68%") })

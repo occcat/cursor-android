@@ -1,9 +1,13 @@
 package app.cursor.android
 
 import app.cursor.android.data.ApiFailure
+import app.cursor.android.data.ConversationUpdate
 import app.cursor.android.data.CursorApi
-import app.cursor.android.data.SseEvent
-import app.cursor.android.data.SseParser
+import app.cursor.android.data.cookieAllowed
+import app.cursor.android.data.endFrame
+import app.cursor.android.data.interactionFrame
+import app.cursor.android.data.sessionHeaders
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.buildJsonObject
@@ -28,10 +32,9 @@ class CursorApiTest {
         server.start()
         api =
             CursorApi(
-                { "fixture-key" },
                 { "session=fixture; csrf-token=old" },
                 server.url("/"),
-                server.url("/"),
+                allowConfiguredOrigin = true,
             )
     }
 
@@ -41,18 +44,56 @@ class CursorApiTest {
     }
 
     @Test
-    fun authModesNeverMixAndPathsAreEncoded() = runTest {
+    fun sessionCookieNeverAddsAuthorizationAndPathsAreEncoded() = runTest {
         server.enqueue(MockResponse().setBody("{}"))
-        api.request("GET", listOf("v1", "agents", "unsafe/id"))
-        val official = server.takeRequest()
-        assertEquals("Bearer fixture-key", official.getHeader("Authorization"))
-        assertNull(official.getHeader("Cookie"))
-        assertEquals("/v1/agents/unsafe%2Fid", official.path)
-        server.enqueue(MockResponse().setBody("{}"))
-        api.request("GET", listOf("api", "usage-summary"), web = true)
+        api.request("GET", listOf("api", "auth", "me"))
         val web = server.takeRequest()
         assertNull(web.getHeader("Authorization"))
         assertTrue(web.getHeader("Cookie")!!.contains("session=fixture"))
+        assertEquals("/api/auth/me", web.path)
+        server.enqueue(MockResponse().setBody("{}"))
+        api.request("GET", listOf("v1", "agents", "unsafe/id"))
+        val encoded = server.takeRequest()
+        assertNull(encoded.getHeader("Authorization"))
+        assertEquals("/v1/agents/unsafe%2Fid", encoded.path)
+    }
+
+    @Test
+    fun foreignHostGetsNoCookieAndNoAuthorization() = runTest {
+        val blocked =
+            CursorApi({ "session=secret-cookie" }, server.url("/"), allowConfiguredOrigin = false)
+        val error =
+            runCatching { blocked.request("GET", listOf("api", "auth", "me")) }.exceptionOrNull()
+        assertTrue(error is ApiFailure)
+        assertEquals("origin_rejected", (error as ApiFailure).code)
+        assertFalse(error.message!!.contains("secret-cookie"))
+        assertEquals(0, server.requestCount)
+        assertFalse(
+            cookieAllowed(server.url("/api/auth/me"), "https://cursor.com/".toHttpUrl(), false)
+        )
+        val allowed =
+            sessionHeaders(
+                "https://cursor.com/api/auth/me".toHttpUrl(),
+                "session=secret-cookie",
+                null,
+                "GET",
+            )
+        assertNull(allowed["Authorization"])
+        assertTrue(allowed["Cookie"]!!.contains("session=secret-cookie"))
+    }
+
+    @Test
+    fun failureBodyDoesNotEchoTheCookie() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(500)
+                .setBody("""{"error":{"code":"request_failed"},"echo":"session=fixture"}""")
+        )
+        val failure =
+            runCatching { api.request("GET", listOf("api", "auth", "me")) }.exceptionOrNull()
+                as ApiFailure
+        assertFalse(failure.message!!.contains("session=fixture"))
+        assertFalse(failure.toString().contains("csrf-token"))
     }
 
     @Test
@@ -95,7 +136,9 @@ class CursorApiTest {
         api.webSettings(buildJsonObject { put("branchPrefix", "mobile/") })
         assertEquals(3, server.requestCount)
         assertEquals("old", server.takeRequest().getHeader("x-csrf-token"))
-        assertEquals("/api/csrf-token", server.takeRequest().path)
+        val refresh = server.takeRequest()
+        assertEquals("/api/csrf-token", refresh.path)
+        assertNull(refresh.getHeader("Authorization"))
         val retry = server.takeRequest()
         assertEquals("fresh", retry.getHeader("x-csrf-token"))
         assertEquals("""{"branchPrefix":"mobile/"}""", retry.body.readUtf8())
@@ -103,42 +146,73 @@ class CursorApiTest {
     }
 
     @Test
-    fun streamResumesOpaqueIdAndKeepsResultDoneWithSameId() = runTest {
+    fun secondCsrfFailureStops() = runTest {
         server.enqueue(
             MockResponse()
-                .setHeader("Content-Type", "text/event-stream")
-                .setBody(
-                    "event: status\ndata: {\"status\":\"RUNNING\"}\n\n" +
-                        "id: opaque:1\nevent: result\ndata: {\"text\":\"done\"}\n\n" +
-                        "id: opaque:1\nevent: done\ndata: {}\n\n"
-                )
+                .setResponseCode(403)
+                .setBody("""{"error":{"code":"invalid_csrf_token"}}""")
         )
-        val events = mutableListOf<SseEvent>()
-        api.stream("bc-1", "run-1", "previous/opaque") { events += it }
-        assertEquals("previous/opaque", server.takeRequest().getHeader("Last-Event-ID"))
-        assertEquals(listOf("status", "result", "done"), events.map { it.type })
-        assertNull(events[0].id)
-        assertTrue(events[1].identity != events[2].identity)
+        server.enqueue(
+            MockResponse().addHeader("Set-Cookie", "csrf-token=fresh; Path=/").setBody("{}")
+        )
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(403)
+                .setBody("""{"error":{"code":"invalid_csrf_token"}}""")
+        )
+        val failure =
+            runCatching { api.webSettings(buildJsonObject { put("branchPrefix", "x") }) }
+                .exceptionOrNull() as ApiFailure
+        assertEquals("invalid_csrf_token", failure.code)
+        assertEquals(3, server.requestCount)
     }
 
     @Test
-    fun streamExpiryIsTypedForRepositoryFallback() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(410).setBody("""{"error":{"code":"stream_expired"}}""")
+    fun conversationUsesConnectFramesAndCarriesOffset() = runTest {
+        val bytes = interactionFrame("off-1", "Hello") + endFrame()
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(bytes)))
+        val updates = mutableListOf<ConversationUpdate>()
+        api.conversation("bc-1", "previous") { updates += it }
+        val request = server.takeRequest()
+        assertEquals(
+            "/api/connect-proxy/aiserver.v1.BackgroundComposerService/StreamConversation",
+            request.path,
         )
-        val failure = runCatching { api.stream("bc", "run", "cursor") {} }.exceptionOrNull()
-        assertEquals(410, (failure as ApiFailure).status)
+        assertEquals("application/connect+proto", request.getHeader("Content-Type"))
+        assertEquals("1", request.getHeader("Connect-Protocol-Version"))
+        assertNull(request.getHeader("Authorization"))
+        val payload = request.body.readByteArray().toString(Charsets.UTF_8)
+        assertTrue(payload.contains("bc-1"))
+        assertTrue(payload.contains("previous"))
+        assertFalse(payload.contains("session=fixture"))
+        assertEquals("Hello", updates.first { it.text.isNotBlank() }.text)
+        assertEquals("off-1", updates.first { it.offsetKey != null }.offsetKey)
+        assertTrue(updates.last().end)
+    }
+
+    @Test
+    fun conversationEndErrorIsNotShownAsText() = runTest {
+        val bytes =
+            endFrame(
+                """{"error":{"code":"usage_limit_exceeded","cookie":"session=fixture"}}"""
+            )
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(bytes)))
+        val failure =
+            runCatching { api.conversation("bc", null) {} }.exceptionOrNull() as ApiFailure
+        assertEquals("usage_limit_exceeded", failure.code)
+        assertFalse(failure.message!!.contains("session=fixture"))
     }
 
     @Test
     fun cancellingVisibleStreamClosesSocketPromptly() =
         kotlinx.coroutines.runBlocking {
+            val bytes = interactionFrame("off", "pending") + endFrame()
             server.enqueue(
                 MockResponse()
-                    .setBody("event: heartbeat\ndata: {}\n\n")
+                    .setBody(okio.Buffer().write(bytes))
                     .setBodyDelay(2, java.util.concurrent.TimeUnit.SECONDS)
             )
-            val stream = launch { api.stream("a", "r", null) {} }
+            val stream = launch { api.conversation("a", null) {} }
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 server.takeRequest(5, java.util.concurrent.TimeUnit.SECONDS)
             }
@@ -148,17 +222,4 @@ class CursorApiTest {
             kotlinx.coroutines.withTimeout(2_000) { stream.join() }
             assertTrue((System.nanoTime() - started) / 1_000_000 < 2_000)
         }
-
-    @Test
-    fun parserSupportsCommentsMultilineAndEmptyIds() {
-        val parser = SseParser()
-        assertNull(parser.line(": heartbeat"))
-        parser.line("id:")
-        parser.line("event: assistant")
-        parser.line("data: first")
-        parser.line("data: second")
-        assertEquals(SseEvent("", "assistant", "first\nsecond"), parser.line(""))
-        parser.line("data: next")
-        assertNull(parser.line("")!!.id)
-    }
 }

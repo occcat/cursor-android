@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.cursor.android.data.CursorRepository
 import app.cursor.android.data.Preferences
 import app.cursor.android.data.UserPreferences
-import app.cursor.android.data.items
+import app.cursor.android.data.array
 import app.cursor.android.data.string
 import app.cursor.android.domain.UsageSnapshot
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,10 +28,7 @@ import kotlinx.serialization.json.JsonObject
 class CursorViewModel
 @Inject
 constructor(private val repository: CursorRepository, val settings: UserPreferences) : ViewModel() {
-    private val local =
-        MutableStateFlow(
-            LocalState(connected = repository.connected, webConnected = repository.webConnected)
-        )
+    private val local = MutableStateFlow(LocalState(webConnected = repository.webConnected))
     val uiState: StateFlow<UiState> =
         combine(local, repository.agents, repository.usage, settings.preferences) {
                 state,
@@ -44,15 +41,20 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
     private var streaming: Job? = null
     private val actions = Mutex()
 
-    fun connect(key: String) = action {
-        repository.connect(key)
-        local.update { it.copy(connected = true) }
-        repository.refreshAgents()
+    init {
+        viewModelScope.launch {
+            repository.connections.collect { connections ->
+                local.update { it.copy(webConnected = connections.web) }
+            }
+        }
     }
 
-    fun connectWeb(cookie: String) = action {
+    fun connectWeb(cookie: String, connected: () -> Unit = {}) = action {
         repository.connectWeb(cookie)
         local.update { it.copy(webConnected = true) }
+        connected()
+        repository.refreshUsage()
+        repository.refreshAgents()
     }
 
     fun disconnect() = action {
@@ -70,12 +72,12 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
     }
 
     fun catalog() = action {
-        val models = repository.cachedResource(listOf("models"))
-        local.update { it.copy(models = models.items()) }
+        val models = repository.models()
+        local.update { it.copy(models = models.array("models")) }
         val repos = repository.repositories()
-        local.update { it.copy(repositories = repos.items()) }
-        val environments = repository.cachedResource(listOf("environments"))
-        local.update { it.copy(environments = environments.items()) }
+        local.update { it.copy(repositories = repos.array("repos")) }
+        val environments = repository.environments()
+        local.update { it.copy(environments = environments.array("environments")) }
     }
 
     fun create(
@@ -83,89 +85,72 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
         repositories: List<String>,
         model: String,
         environment: String,
-        plan: Boolean,
-        autoPr: Boolean,
         complete: (String) -> Unit,
     ) = action {
-        val id = repository.create(prompt, repositories, model, environment, plan, autoPr)
+        val id = repository.create(prompt, repositories, model, environment)
         complete(id)
     }
 
     fun detail(id: String) = action {
         streaming?.cancel()
-        local.update { it.copy(detail = null, runs = emptyList(), streamText = "") }
-        val detail = repository.cachedResource(listOf("agents", id))
-        local.update { it.copy(detail = detail) }
-        val runs = repository.cachedResource(listOf("agents", id, "runs"))
-        local.update { it.copy(runs = runs.items()) }
-        val run = runs.items().firstOrNull()
-        if (run != null && run.string("status") in listOf("CREATING", "RUNNING")) {
-            watch(id, run.string("id"))
+        local.update {
+            it.copy(detail = null, runs = emptyList(), streamText = "", pauseUnavailable = false)
         }
+        val detail = repository.composer(id)
+        local.update { it.copy(detail = detail, streamText = "") }
+        watch(id)
     }
 
     fun stopWatching() {
         streaming?.cancel()
     }
 
-    private fun watch(agent: String, run: String) {
+    private fun watch(agent: String) {
+        streaming?.cancel()
         streaming =
             viewModelScope.launch {
                 try {
-                    repository.stream(agent, run).collect { event ->
-                        val status = event.string("status")
-                        local.update { state ->
-                            state.copy(
-                                streamText = event.string("text"),
-                                runs =
-                                    state.runs.map { item ->
-                                        if (item.string("id") == run && status.isNotBlank()) {
-                                            JsonObject(
-                                                item +
-                                                    ("status" to
-                                                        kotlinx.serialization.json.JsonPrimitive(
-                                                            status
-                                                        ))
-                                            )
-                                        } else item
-                                    },
-                            )
-                        }
+                    repository.conversation(agent).collect { event ->
+                        local.update { it.copy(streamText = event.string("text")) }
                     }
-                    val current = repository.cachedResource(listOf("agents", agent, "runs"))
-                    local.update { it.copy(runs = current.items()) }
                 } catch (exception: Exception) {
                     if (exception is CancellationException) throw exception
-                    local.update { it.copy(error = exception.message ?: "Stream unavailable") }
+                    local.update {
+                        it.copy(
+                            error = exception.message ?: "Stream unavailable",
+                            webConnected = repository.webConnected,
+                        )
+                    }
                 }
             }
     }
 
     fun followUp(id: String, text: String) = action {
         repository.followUp(id, text)
-        val runs = repository.cachedResource(listOf("agents", id, "runs"))
-        local.update { it.copy(runs = runs.items(), streamText = "") }
-        runs.items().firstOrNull()?.let { watch(id, it.string("id")) }
+        val detail = repository.composer(id)
+        local.update { it.copy(detail = detail) }
+        watch(id)
     }
 
-    fun agentAction(id: String, action: String, run: String?, complete: () -> Unit) = action {
-        repository.action(id, action, run)
+    fun agentAction(id: String, action: String, complete: () -> Unit) = action {
+        val expressed = repository.action(id, action)
+        if (action == "pause" && !expressed) {
+            local.update { it.copy(pauseUnavailable = true) }
+        } else {
+            val detail = repository.composer(id)
+            local.update { it.copy(detail = detail, pauseUnavailable = false) }
+        }
         complete()
     }
 
     fun artifacts(id: String) = action {
-        val response = repository.cachedResource(listOf("agents", id, "artifacts"))
-        local.update { it.copy(artifacts = response.items()) }
+        val response = repository.artifacts(id)
+        local.update { it.copy(artifacts = response.array("artifacts")) }
     }
 
-    fun artifactUrl(id: String, path: String, open: (String) -> Unit) = action {
-        val response =
-            repository.api.request(
-                "GET",
-                listOf("v1", "agents", id, "artifacts", "download"),
-                query = mapOf("path" to path),
-            )
-        open(response.string("url"))
+    fun artifactText(id: String, artifact: JsonObject, show: (String) -> Unit) = action {
+        val response = repository.artifactBytes(id, artifact)
+        show(decodeArtifact(response.string("content")))
     }
 
     fun webSettings(patch: JsonObject? = null) = action {
@@ -176,37 +161,36 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
 
     fun environment(id: String) = action {
         local.update { it.copy(environment = null, secrets = emptyList()) }
-        val resource = repository.cachedResource(listOf("environments", id))
-        val secrets = repository.cachedResource(listOf("environments", id, "secrets"))
-        local.update { it.copy(environment = resource, secrets = secrets.items()) }
+        val resource = repository.environment(id)
+        val secrets = repository.secrets(id)
+        local.update { it.copy(environment = resource, secrets = secrets.array("secrets")) }
     }
 
     fun saveEnvironment(id: String, body: JsonObject) = action {
-        require(local.value.environment?.string("id") == id) {
+        require(local.value.environment?.string("publicId") == id) {
             "Reload this environment before saving"
         }
-        repository.api.request("PATCH", listOf("v1", "environments", id), body)
-        val value = repository.cachedResource(listOf("environments", id))
+        val configuration = body["environmentJson"] ?: body
+        repository.saveEnvironment(id, configuration)
+        val value = repository.environment(id)
         local.update { it.copy(environment = value) }
     }
 
-    fun secret(id: String, name: String, body: JsonObject?, version: String? = null) = action {
-        require(local.value.environment?.string("id") == id) {
+    fun secret(id: String, name: String, value: String?) = action {
+        require(local.value.environment?.string("publicId") == id) {
             "Reload this environment before saving"
         }
-        if (body != null) {
+        if (value != null) {
             require(local.value.secrets.none { it.string("name") == name }) {
                 "A secret with this name exists. Use Cursor Web to rotate an existing secret."
             }
+            repository.putSecret(name, value)
+        } else {
+            val existing = local.value.secrets.firstOrNull { it.string("name") == name }
+            repository.revokeSecret(name, existing?.string("id"))
         }
-        repository.api.request(
-            if (body == null) "DELETE" else "PUT",
-            listOf("v1", "environments", id, "secrets", name),
-            body,
-            if (version == null) emptyMap() else mapOf("id" to version),
-        )
-        val secrets = repository.cachedResource(listOf("environments", id, "secrets"))
-        local.update { it.copy(secrets = secrets.items()) }
+        val secrets = repository.secrets(id)
+        local.update { it.copy(secrets = secrets.array("secrets")) }
     }
 
     fun boolean(name: String, value: Boolean) = action { settings.boolean(name, value) }
@@ -226,11 +210,7 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
                     local.update { it.copy(error = exception.message ?: "Request failed") }
                 } finally {
                     local.update {
-                        it.copy(
-                            busy = false,
-                            connected = repository.connected,
-                            webConnected = repository.webConnected,
-                        )
+                        it.copy(busy = false, webConnected = repository.webConnected)
                     }
                 }
             }
@@ -238,7 +218,6 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
 }
 
 data class LocalState(
-    val connected: Boolean = false,
     val webConnected: Boolean = false,
     val busy: Boolean = false,
     val error: String? = null,
@@ -252,7 +231,16 @@ data class LocalState(
     val environment: JsonObject? = null,
     val webSettings: JsonObject? = null,
     val secrets: List<JsonObject> = emptyList(),
+    val pauseUnavailable: Boolean = false,
 )
+
+internal fun decodeArtifact(content: String): String {
+    if (content.isBlank()) return ""
+    return runCatching {
+            String(java.util.Base64.getDecoder().decode(content), Charsets.UTF_8)
+        }
+        .getOrDefault("")
+}
 
 data class UiState(
     val local: LocalState = LocalState(),

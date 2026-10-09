@@ -73,7 +73,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.Lifecycle
@@ -84,9 +83,10 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import app.cursor.android.data.Preferences
-import app.cursor.android.data.items
+import app.cursor.android.data.array
 import app.cursor.android.data.string
 import app.cursor.android.domain.UsageSnapshot
+import app.cursor.android.domain.isGoogleSignInHost
 import app.cursor.android.domain.isTrustedSignInUrl
 import app.cursor.android.system.UsageNotifications
 import app.cursor.android.system.UsageOverlayService
@@ -98,7 +98,10 @@ import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
 @Serializable private data class Destination(val screen: String, val id: String = "") : NavKey
@@ -134,7 +137,7 @@ fun CursorApp(
             LocaleListCompat.forLanguageTags(state.preferences.language)
         )
     }
-    LaunchedEffect(state.local.connected) { if (state.local.connected) model.refresh() }
+    LaunchedEffect(state.local.webConnected) { if (state.local.webConnected) model.refresh() }
     LaunchedEffect(
         state.local.webConnected,
         state.preferences.paused,
@@ -237,7 +240,7 @@ fun CursorApp(
                                             model,
                                             { backStack.add(Destination("create")) },
                                             { backStack.add(Destination("detail", it)) },
-                                            { backStack.add(Destination("settings")) },
+                                            { backStack.add(Destination("signin")) },
                                             { usageOpen = true },
                                         )
                                     "create" ->
@@ -245,10 +248,7 @@ fun CursorApp(
                                             backStack.removeLastOrNull()
                                             backStack.add(Destination("detail", it))
                                         }
-                                    "detail" ->
-                                        AgentDetail(route.id, state, model) {
-                                            backStack.removeLastOrNull()
-                                        }
+                                    "detail" -> AgentDetail(route.id, state, model)
                                     "settings" ->
                                         SettingsScreen(
                                             state,
@@ -290,7 +290,7 @@ private fun Inbox(
     model: CursorViewModel,
     create: () -> Unit,
     detail: (String) -> Unit,
-    settings: () -> Unit,
+    signIn: () -> Unit,
     usage: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -311,7 +311,7 @@ private fun Inbox(
             )
         }
         item { UsageCapsule(state.usage, state.preferences, usage) }
-        if (!state.local.connected) {
+        if (!state.local.webConnected) {
             item {
                 CursorCard {
                     Column(
@@ -324,12 +324,12 @@ private fun Inbox(
                         )
                         Description(
                             label(
-                                "Use a Cursor API key to manage agents. Connect a web session " +
-                                    "separately to view account usage.",
-                                "使用 Cursor API Key 管理 Agent，另行连接网页会话以查看账户用量。",
+                                "Sign in with the Cursor web session on this device. " +
+                                    "Email codes and GitHub stay in the app.",
+                                "在本机使用 Cursor 网页会话登录。邮箱验证码和 GitHub 留在应用内。",
                             )
                         )
-                        CursorButton(onClick = settings) { Text(label("Get started", "开始使用")) }
+                        CursorButton(onClick = signIn) { Text(label("Get started", "开始使用")) }
                     }
                 }
             }
@@ -356,7 +356,7 @@ private fun Inbox(
                 CursorChip(archived, { archived = !archived }, label("Include archived", "包含归档"))
             }
             val agents =
-                state.agents?.items().orEmpty().filter {
+                state.agents?.array("composers").orEmpty().filter {
                     (archived || it.string("status") != "ARCHIVED") &&
                         it.string("name").contains(query, ignoreCase = true)
                 }
@@ -366,8 +366,8 @@ private fun Inbox(
                         label("No agents here yet. Start with a task.", "暂无 Agent，创建一个任务开始。")
                     )
                 }
-            items(agents, key = { it.string("id") }) { agent ->
-                CursorCard(Modifier.fillMaxWidth(), onClick = { detail(agent.string("id")) }) {
+            items(agents, key = { it.string("bcId").ifBlank { it.string("name") } }) { agent ->
+                CursorCard(Modifier.fillMaxWidth(), onClick = { detail(agent.string("bcId")) }) {
                     Column(
                         Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -381,12 +381,12 @@ private fun Inbox(
                             itemVerticalAlignment = Alignment.CenterVertically,
                         ) {
                             AgentStatus(agent.string("status"))
-                            Note(agent.string("updatedAt"))
+                            Note(updatedLabel(agent))
                         }
                     }
                 }
             }
-            if (!state.agents?.string("nextCursor").isNullOrBlank())
+            if ((state.agents?.get("hasMore") as? JsonPrimitive)?.booleanOrNull == true)
                 item {
                     CursorSecondaryButton(onClick = { model.refresh(true) }) {
                         Text(label("Load more", "加载更多"))
@@ -573,6 +573,12 @@ private fun UsagePanel(
     }
 }
 
+private fun updatedLabel(agent: JsonObject): String {
+    val raw = (agent["updatedAtMs"] as? JsonPrimitive)?.contentOrNull
+    val millis = raw?.toLongOrNull()
+    return if (millis != null) time(millis) else agent.string("updatedAt")
+}
+
 private fun time(value: Long): String =
     DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(value))
 
@@ -588,8 +594,6 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
     var repository by rememberSaveable { mutableStateOf("") }
     var selectedModel by rememberSaveable { mutableStateOf("") }
     var environment by rememberSaveable { mutableStateOf("") }
-    var plan by rememberSaveable { mutableStateOf(false) }
-    var autoPr by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { model.catalog() }
     Column(
         Modifier.padding(20.dp).verticalScroll(rememberScrollState()),
@@ -625,10 +629,10 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
             state.local.repositories.take(10).forEach { repo ->
                 CursorActionChip(
                     onClick = {
-                        repository = repo.string("url")
+                        repository = repo.string("htmlUrl")
                         environment = ""
                     },
-                    label = repo.string("url").substringAfterLast('/'),
+                    label = repo.string("htmlUrl").substringAfterLast('/'),
                 )
             }
         }
@@ -640,12 +644,12 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
             )
             state.local.environments.forEach { env ->
                 CursorChip(
-                    environment == env.string("name"),
+                    environment == env.string("publicId"),
                     {
-                        environment = env.string("name")
+                        environment = env.string("publicId")
                         repository = ""
                     },
-                    label = env.string("name"),
+                    label = env.string("name").ifBlank { env.string("publicId") },
                 )
             }
         }
@@ -658,15 +662,14 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
             )
             state.local.models.forEach { item ->
                 CursorChip(
-                    selectedModel == item.string("id"),
-                    { selectedModel = item.string("id") },
-                    label = item.string("displayName").ifBlank { item.string("id") },
+                    selectedModel == item.string("serverModelName"),
+                    { selectedModel = item.string("serverModelName") },
+                    label =
+                        item.string("clientDisplayName").ifBlank {
+                            item.string("serverModelName")
+                        },
                 )
             }
-        }
-        Toggle(label("Plan before implementing", "先制定计划"), plan) { plan = it }
-        Toggle(label("Create a pull request automatically", "自动创建 Pull Request"), autoPr) {
-            autoPr = it
         }
         CursorButton(
             onClick = {
@@ -675,8 +678,6 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
                     repository.lines().map(String::trim).filter(String::isNotEmpty),
                     selectedModel,
                     environment,
-                    plan,
-                    autoPr,
                     complete,
                 )
             },
@@ -696,17 +697,18 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
 }
 
 @Composable
-private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back: () -> Unit) {
+private fun AgentDetail(id: String, state: UiState, model: CursorViewModel) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var followUp by rememberSaveable(id) { mutableStateOf("") }
     var confirm by remember { mutableStateOf<String?>(null) }
     var showArtifacts by rememberSaveable { mutableStateOf(false) }
+    var artifactBody by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(id, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { model.detail(id).join() }
     }
     DisposableEffect(id) { onDispose { model.stopWatching() } }
-    val agent = state.local.detail?.takeIf { it.string("id") == id }
+    val agent = state.local.detail?.takeIf { it.string("bcId") == id }
     if (agent == null) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(label("Loading this workspace…", "正在加载此工作区…"))
@@ -740,6 +742,22 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
                     },
                     label = label("Artifacts", "产物"),
                 )
+                if (agent?.string("status") !in listOf(
+                        "FINISHED",
+                        "ERROR",
+                        "FAILED",
+                        "EXPIRED",
+                        "CANCELLED",
+                        "ARCHIVED",
+                    )
+                ) {
+                    CursorActionChip(
+                        onClick = { if (!state.local.pauseUnavailable) confirm = "pause" },
+                        label =
+                            if (state.local.pauseUnavailable) label("Pause unavailable", "无法暂停")
+                            else label("Pause", "暂停"),
+                    )
+                }
                 CursorActionChip(
                     onClick = {
                         confirm =
@@ -750,20 +768,15 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
                         else label("Archive", "归档"),
                 )
             }
-        }
-        if (showArtifacts) {
-            items(state.local.artifacts) { artifact ->
-                CursorSecondaryButton(
-                    onClick = {
-                        model.artifactUrl(id, artifact.string("path")) { openHttps(context, it) }
-                    },
-                    modifier = Modifier.animateItem(fadeInSpec = tween(CursorMotion.slowMillis)),
-                ) {
-                    Text(artifact.string("path"))
-                }
+            if (state.local.pauseUnavailable) {
+                Spacer(Modifier.height(8.dp))
+                Note(
+                    label(
+                        "This response cannot pause the agent.",
+                        "这次返回无法表示暂停。",
+                    )
+                )
             }
-            if (state.local.artifacts.isEmpty())
-                item { Description(label("No artifacts returned.", "暂无产物。")) }
         }
         if (state.local.streamText.isNotBlank())
             item {
@@ -773,7 +786,7 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
-                            label("Live output", "实时输出"),
+                            label("Conversation", "对话"),
                             style = MaterialTheme.typography.labelSmall,
                             color = CursorTheme.colors.accentText,
                         )
@@ -782,34 +795,39 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
                                 state.local.streamText,
                                 style =
                                     MaterialTheme.typography.bodySmall.copy(
-                                        fontFamily = FontFamily.Monospace,
-                                        lineHeight = 18.sp,
+                                        fontFamily = FontFamily.Monospace
                                     ),
                             )
                         }
                     }
                 }
             }
-        items(state.local.runs, key = { it.string("id") }) { run ->
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Note(run.string("status") + " · " + run.string("createdAt"))
-                if (run.string("result").isNotBlank())
-                    SelectionContainer { Text(run.string("result")) }
-                if (run.string("status") in listOf("CREATING", "RUNNING")) {
-                    CursorSecondaryButton(onClick = { confirm = "cancel" }) {
-                        Text(label("Cancel active run", "取消运行"))
+        if (showArtifacts) {
+            items(state.local.artifacts) { artifact ->
+                val title =
+                    listOf("path", "name", "absolutePath")
+                        .map { artifact.string(it) }
+                        .firstOrNull { it.isNotBlank() }
+                if (title != null)
+                    CursorSecondaryButton(
+                        onClick = { model.artifactText(id, artifact) { artifactBody = it } },
+                        modifier =
+                            Modifier.animateItem(fadeInSpec = tween(CursorMotion.slowMillis)),
+                    ) {
+                        Text(title)
                     }
-                }
-                HorizontalDivider()
             }
+            if (
+                state.local.artifacts.isEmpty() ||
+                    state.local.artifacts.none { artifact ->
+                        listOf("path", "name", "absolutePath").any {
+                            artifact.string(it).isNotBlank()
+                        }
+                    }
+            )
+                item { Description(label("No artifacts returned.", "暂无产物。")) }
         }
         item {
-            Note(
-                label(
-                    "Historical prompts are not provided by the public v1 API.",
-                    "公开 v1 API 不提供历史用户提示词。",
-                )
-            )
             CursorTextField(
                 followUp,
                 { followUp = it },
@@ -822,23 +840,26 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
                     model.followUp(id, followUp)
                     followUp = ""
                 },
-                enabled =
-                    followUp.isNotBlank() &&
-                        !state.local.busy &&
-                        state.local.runs.none {
-                            it.string("status") in listOf("CREATING", "RUNNING")
-                        },
+                enabled = followUp.isNotBlank() && !state.local.busy,
             ) {
                 Text(label("Send follow-up", "发送追问"))
             }
         }
         item { FeatureLinks() }
-        item {
-            CursorTextButton(onClick = { confirm = "delete" }, tone = CursorTone.Danger) {
-                Text(label("Delete agent permanently", "永久删除 Agent"))
-            }
-        }
     }
+    if (artifactBody != null)
+        CursorAlertDialog(
+            onDismissRequest = { artifactBody = null },
+            title = { Text(label("Artifact", "产物")) },
+            text = {
+                SelectionContainer {
+                    Text(artifactBody.orEmpty().ifBlank { label("No bytes returned.", "没有返回内容。") })
+                }
+            },
+            confirmButton = {
+                CursorTextButton(onClick = { artifactBody = null }) { Text(label("Close", "关闭")) }
+            },
+        )
     if (confirm != null)
         CursorAlertDialog(
             onDismissRequest = { confirm = null },
@@ -846,12 +867,7 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
             text = {
                 Text(
                     when (confirm) {
-                        "delete" ->
-                            label(
-                                "Permanently delete this agent and its workspace?",
-                                "永久删除 Agent 及其工作区？",
-                            )
-                        "cancel" -> label("Cancel the active run?", "取消当前运行？")
+                        "pause" -> label("Pause this agent?", "暂停此 Agent？")
                         "archive" -> label("Archive this agent?", "归档此 Agent？")
                         else -> label("Restore this agent?", "恢复此 Agent？")
                     }
@@ -862,19 +878,9 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
                     onClick = {
                         val action = confirm ?: return@CursorTextButton
                         confirm = null
-                        model.agentAction(
-                            id,
-                            action,
-                            state.local.runs
-                                .firstOrNull {
-                                    it.string("status") in listOf("CREATING", "RUNNING")
-                                }
-                                ?.string("id"),
-                        ) {
-                            if (action == "delete") back()
-                        }
+                        model.agentAction(id, action) {}
                     },
-                    tone = if (confirm == "delete") CursorTone.Danger else CursorTone.Default,
+                    tone = CursorTone.Default,
                 ) {
                     Text(label("Confirm", "确认"))
                 }
@@ -893,7 +899,6 @@ private fun SettingsScreen(
     environment: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    var key by remember { mutableStateOf("") }
     var signOut by remember { mutableStateOf(false) }
     val permission =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -905,59 +910,18 @@ private fun SettingsScreen(
     ) {
         Text(label("Make it yours.", "按你的方式使用。"), style = MaterialTheme.typography.headlineMedium)
         Section(label("CONNECTIONS", "连接"))
-        Text(
-            label("Cloud Agents API", "Cloud Agents API"),
-            style = MaterialTheme.typography.titleMedium,
-        )
+        Text(label("Web session", "网页会话"), style = MaterialTheme.typography.titleMedium)
         Description(
-            if (state.local.connected) label("API key connected", "已连接 API Key")
+            if (state.local.webConnected)
+                label(
+                    "Signed in with the cursor.com session stored on this device.",
+                    "已使用保存在本设备的 cursor.com 会话登录。",
+                )
             else
                 label(
-                    "Create a key in Cursor Dashboard. It stays encrypted on this device.",
-                    "在 Cursor Dashboard 创建 Key，它将加密保存在本设备。",
+                    "Sign in inside the app. The session cookie stays encrypted on this device.",
+                    "在应用内登录。会话 cookie 会加密保存在本设备。",
                 )
-        )
-        if (!state.local.connected) {
-            CursorTextField(
-                key,
-                { key = it },
-                Modifier.fillMaxWidth(),
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        autoCorrectEnabled = false,
-                    ),
-                label = { Text("API key") },
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CursorButton(
-                    onClick = {
-                        model.connect(key)
-                        key = ""
-                    },
-                    enabled = key.isNotBlank(),
-                ) {
-                    Text(label("Connect API", "连接 API"))
-                }
-                CursorTextButton(
-                    onClick = {
-                        openHttps(context, "https://cursor.com/dashboard?tab=integrations")
-                    },
-                    tone = CursorTone.Link,
-                ) {
-                    Text(label("Get a key ↗", "获取 Key ↗"))
-                }
-            }
-        }
-        Text(label("Account usage", "账户用量"), style = MaterialTheme.typography.titleMedium)
-        Description(
-            label(
-                "Usage uses a separate Cursor web session, not your API key. " +
-                    "Connect the same account yourself; identities are not assumed to match.",
-                "用量使用独立的 Cursor 网页会话，不使用 API Key。请自行连接同一账户，客户端不会假定身份一致。",
-            )
         )
         CursorSecondaryButton(onClick = signIn) {
             Text(
@@ -965,7 +929,7 @@ private fun SettingsScreen(
                 else label("Connect web session", "连接网页会话")
             )
         }
-        if (state.local.connected || state.local.webConnected) {
+        if (state.local.webConnected) {
             CursorTextButton(onClick = { signOut = true }) {
                 Text(label("Disconnect & clear local data", "断开并清除本地数据"))
             }
@@ -1068,14 +1032,14 @@ private fun SettingsScreen(
                 label = "简体中文",
             )
         }
-        if (state.local.connected) {
+        if (state.local.webConnected) {
             Section(label("CLOUD ENVIRONMENTS", "云端环境"))
             CursorSecondaryButton(onClick = model::catalog) {
                 Text(label("Load environments", "加载环境"))
             }
             state.local.environments.forEach { item ->
-                CursorTextButton(onClick = { environment(item.string("id")) }) {
-                    Text(item.string("name"))
+                CursorTextButton(onClick = { environment(item.string("publicId")) }) {
+                    Text(item.string("name").ifBlank { item.string("publicId") })
                 }
             }
         }
@@ -1138,6 +1102,7 @@ private fun Toggle(text: String, checked: Boolean, onChange: (Boolean) -> Unit) 
 @Composable
 private fun WebSignIn(model: CursorViewModel, back: () -> Unit) {
     val context = LocalContext.current
+    var googleBlocked by remember { mutableStateOf(false) }
     val web = remember {
         WebView(context).apply {
             settings.javaScriptEnabled = true
@@ -1154,6 +1119,10 @@ private fun WebSignIn(model: CursorViewModel, back: () -> Unit) {
                     ): Boolean {
                         val uri = request.url
                         if (uri.scheme != "https") return true
+                        if (uri.host?.let(::isGoogleSignInHost) == true) {
+                            googleBlocked = true
+                            return true
+                        }
                         val trusted = isTrustedSignInUrl(uri.toString())
                         if (!trusted) openHttps(context, uri.toString())
                         return !trusted
@@ -1171,25 +1140,54 @@ private fun WebSignIn(model: CursorViewModel, back: () -> Unit) {
     Column {
         Note(
             label(
-                "Sign in, then connect. Some SSO providers reject embedded browsers; " +
-                    "API key mode remains available for agents.",
-                "登录后点击连接。部分 SSO 不支持内嵌浏览器，Agent 仍可通过 API Key 使用。",
+                "Sign in with an email code or GitHub, then connect this session.",
+                "用邮箱验证码或 GitHub 登录，然后连接此会话。",
             ),
             Modifier.padding(16.dp),
         )
+        if (googleBlocked) {
+            Column(
+                Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    label(
+                        "Google sign-in is not available here. Use an email code or GitHub. " +
+                            "If this Cursor account only has Google, add an email login in the " +
+                            "system browser, then come back and use the code.",
+                        "应用内不能使用 Google 登录。请用邮箱验证码或 GitHub。" +
+                            "如果账号只有 Google，请先在系统浏览器里给 Cursor 账号加上邮箱登录，" +
+                            "再回到这里用验证码。",
+                    )
+                )
+                CursorSecondaryButton(
+                    onClick = { openHttps(context, "https://cursor.com/dashboard") }
+                ) {
+                    Text(label("Add email in the browser ↗", "在浏览器中添加邮箱 ↗"))
+                }
+                CursorTextButton(
+                    onClick = {
+                        googleBlocked = false
+                        web.loadUrl("https://cursor.com/agents")
+                    }
+                ) {
+                    Text(label("Back to sign in", "返回登录"))
+                }
+            }
+        }
         Row(Modifier.padding(horizontal = 16.dp)) {
             CursorButton(
                 onClick = {
                     val cookie =
                         CookieManager.getInstance().getCookie("https://cursor.com").orEmpty()
-                    model.connectWeb(cookie)
-                    back()
+                    if (cookie.isBlank()) return@CursorButton
+                    model.connectWeb(cookie) { back() }
                 }
             ) {
                 Text(label("Connect this session", "连接此会话"))
             }
         }
-        AndroidView(factory = { web }, modifier = Modifier.fillMaxSize())
+        if (!googleBlocked) AndroidView(factory = { web }, modifier = Modifier.fillMaxSize())
     }
 }
 
@@ -1203,7 +1201,7 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
     var confirmSave by remember { mutableStateOf(false) }
     var invalidJson by remember { mutableStateOf(false) }
     LaunchedEffect(id) { model.environment(id) }
-    val loaded = state.local.environment?.string("id") == id
+    val loaded = state.local.environment?.string("publicId") == id
     LaunchedEffect(state.local.environment, id) {
         name = state.local.environment?.string("name").orEmpty()
         configuration = state.local.environment?.string("environmentJson").orEmpty()
@@ -1282,14 +1280,7 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
         )
         CursorButton(
             onClick = {
-                model.secret(
-                    id,
-                    secretName,
-                    buildJsonObject {
-                        put("value", secretValue)
-                        put("type", "runtime_secret")
-                    },
-                )
+                model.secret(id, secretName, secretValue)
                 secretName = ""
                 secretValue = ""
             },
@@ -1334,14 +1325,12 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
     if (pendingDelete != null)
         CursorAlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text(label("Delete secret version?", "删除密钥版本？")) },
+            title = { Text(label("Revoke secret?", "撤销密钥？")) },
             text = { Text(pendingDelete?.string("name").orEmpty()) },
             confirmButton = {
                 CursorTextButton(
                     onClick = {
-                        pendingDelete?.let {
-                            model.secret(id, it.string("name"), null, it.string("id"))
-                        }
+                        pendingDelete?.let { model.secret(id, it.string("name"), null) }
                         pendingDelete = null
                     },
                     tone = CursorTone.Danger,
@@ -1369,9 +1358,8 @@ private fun WebSettings(state: UiState, model: CursorViewModel) {
     Section(label("CURSOR WEB DEFAULTS", "CURSOR 网页默认设置"))
     Note(
         label(
-            "Personal web preferences. Team policies can override them; " +
-                "API create options are separate.",
-            "个人网页偏好，可能受团队策略覆盖；API 新建选项与此独立。",
+            "Personal web preferences. Team policies can override them.",
+            "个人网页偏好，可能受团队策略覆盖。",
         )
     )
     CursorSecondaryButton(onClick = { model.webSettings() }) {
