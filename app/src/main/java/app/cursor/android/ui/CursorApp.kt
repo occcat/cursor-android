@@ -14,18 +14,23 @@ import android.webkit.WebViewClient
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -35,12 +40,14 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -51,6 +58,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -66,10 +74,13 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -154,35 +165,73 @@ fun CursorApp(
         UsageNotifications.update(context, state.usage, state.preferences)
     }
     CursorTheme {
+        val colors = CursorTheme.colors
+        val toolbarPadding = PaddingValues(horizontal = 8.dp)
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text("Cursor Android", fontSize = 19.sp) },
-                    navigationIcon = {
-                        if (backStack.size > 1)
-                            TextButton(onClick = { backStack.removeLastOrNull() }) {
-                                Text(label("Back", "返回"))
+                Column {
+                    TopAppBar(
+                        title = {
+                            Text("Cursor Android", style = MaterialTheme.typography.titleSmall)
+                        },
+                        navigationIcon = {
+                            if (backStack.size > 1)
+                                CursorTextButton(
+                                    onClick = { backStack.removeLastOrNull() },
+                                    contentPadding = toolbarPadding,
+                                ) {
+                                    Text(label("Back", "返回"))
+                                }
+                        },
+                        actions = {
+                            CursorTextButton(
+                                onClick = { usageOpen = true },
+                                contentPadding = toolbarPadding,
+                            ) {
+                                Text(label("Usage", "用量"))
                             }
-                    },
-                    actions = {
-                        TextButton(onClick = { usageOpen = true }) { Text(label("Usage", "用量")) }
-                        TextButton(onClick = { backStack.add(Destination("settings")) }) {
-                            Text(label("Settings", "设置"))
-                        }
-                    },
-                )
+                            CursorTextButton(
+                                onClick = { backStack.add(Destination("settings")) },
+                                contentPadding = toolbarPadding,
+                            ) {
+                                Text(label("Settings", "设置"))
+                            }
+                        },
+                        expandedHeight = 56.dp,
+                        colors =
+                            TopAppBarDefaults.topAppBarColors(
+                                containerColor = colors.bg,
+                                scrolledContainerColor = colors.bg,
+                                titleContentColor = colors.fg,
+                            ),
+                    )
+                    HorizontalDivider(color = colors.border02)
+                }
             }
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
-                if (state.local.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (state.local.busy)
+                    LinearProgressIndicator(
+                        Modifier.fillMaxWidth().height(2.dp),
+                        color = colors.accent,
+                        trackColor = Color.Transparent,
+                        gapSize = 0.dp,
+                    )
                 if (state.local.error != null) {
-                    Surface(color = MaterialTheme.colorScheme.errorContainer) {
+                    Surface(color = colors.cardWarm, contentColor = colors.fg) {
                         Row(
-                            Modifier.fillMaxWidth().padding(12.dp),
+                            Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(state.local.error, Modifier.weight(1f), fontSize = 13.sp)
-                            TextButton(onClick = model::clearError) { Text(label("Dismiss", "关闭")) }
+                            Box(Modifier.width(2.dp).fillMaxHeight().background(colors.error))
+                            Text(
+                                state.local.error,
+                                Modifier.weight(1f).padding(12.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            CursorTextButton(onClick = model::clearError) {
+                                Text(label("Dismiss", "关闭"))
+                            }
                         }
                     }
                 }
@@ -227,7 +276,15 @@ fun CursorApp(
             }
         }
         if (usageOpen)
-            ModalBottomSheet(onDismissRequest = { usageOpen = false }) {
+            ModalBottomSheet(
+                onDismissRequest = { usageOpen = false },
+                containerColor = CursorTheme.colors.bg,
+                contentColor = CursorTheme.colors.fg,
+                tonalElevation = 0.dp,
+                dragHandle = {
+                    BottomSheetDefaults.DragHandle(color = CursorTheme.colors.border025)
+                },
+            ) {
                 UsagePanel(
                     state.usage,
                     state.preferences,
@@ -257,34 +314,33 @@ private fun Inbox(
             Text(
                 label("Your work.\nWithin reach.", "你的工作，\n随时掌握。"),
                 style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Medium,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 label("Cloud agents, wherever you are.", "随时随地，连接云端 Agent。"),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = CursorTheme.colors.textSecondary,
             )
         }
         item { UsageCapsule(state.usage, state.preferences, usage) }
         if (!state.local.connected) {
             item {
-                Card {
+                CursorCard {
                     Column(
-                        Modifier.padding(20.dp),
+                        Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
                             label("Connect your workspace", "连接你的工作区"),
                             style = MaterialTheme.typography.titleLarge,
                         )
-                        Text(
+                        Description(
                             label(
                                 "Use a Cursor API key to manage agents. Connect a web session " +
                                     "separately to view account usage.",
                                 "使用 Cursor API Key 管理 Agent，另行连接网页会话以查看账户用量。",
                             )
                         )
-                        Button(onClick = settings) { Text(label("Get started", "开始使用")) }
+                        CursorButton(onClick = settings) { Text(label("Get started", "开始使用")) }
                     }
                 }
             }
@@ -292,25 +348,23 @@ private fun Inbox(
         } else {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = create, enabled = !state.local.busy) {
+                    CursorButton(onClick = create, enabled = !state.local.busy) {
                         Text(label("+ New agent", "+ 新建 Agent"))
                     }
-                    OutlinedButton(onClick = { model.refresh() }) { Text(label("Refresh", "刷新")) }
+                    CursorSecondaryButton(onClick = { model.refresh() }) {
+                        Text(label("Refresh", "刷新"))
+                    }
                 }
             }
             item {
-                OutlinedTextField(
+                CursorTextField(
                     query,
                     { query = it },
                     Modifier.fillMaxWidth(),
                     label = { Text(label("Search agents", "搜索 Agent")) },
                     singleLine = true,
                 )
-                FilterChip(
-                    archived,
-                    { archived = !archived },
-                    label = { Text(label("Include archived", "包含归档")) },
-                )
+                CursorChip(archived, { archived = !archived }, label("Include archived", "包含归档"))
             }
             val agents =
                 state.agents?.items().orEmpty().filter {
@@ -318,47 +372,45 @@ private fun Inbox(
                         it.string("name").contains(query, ignoreCase = true)
                 }
             if (agents.isEmpty())
-                item { Text(label("No agents here yet. Start with a task.", "暂无 Agent，创建一个任务开始。")) }
+                item {
+                    Description(
+                        label("No agents here yet. Start with a task.", "暂无 Agent，创建一个任务开始。")
+                    )
+                }
             items(agents, key = { it.string("id") }) { agent ->
-                Card(onClick = { detail(agent.string("id")) }, Modifier.fillMaxWidth()) {
+                CursorCard(Modifier.fillMaxWidth(), onClick = { detail(agent.string("id")) }) {
                     Column(
-                        Modifier.padding(18.dp),
+                        Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
                             agent.string("name").ifBlank { label("Untitled agent", "未命名 Agent") },
                             style = MaterialTheme.typography.titleMedium,
                         )
-                        Text(
-                            agent.string("status"),
-                            color = frost,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                        )
-                        Text(
-                            agent.string("updatedAt"),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            itemVerticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AgentStatus(agent.string("status"))
+                            Note(agent.string("updatedAt"))
+                        }
                     }
                 }
             }
             if (!state.agents?.string("nextCursor").isNullOrBlank())
                 item {
-                    OutlinedButton(onClick = { model.refresh(true) }) {
+                    CursorSecondaryButton(onClick = { model.refresh(true) }) {
                         Text(label("Load more", "加载更多"))
                     }
                 }
             item { FeatureLinks() }
         }
         item {
-            Text(
+            Note(
                 label(
                     "Independent community client. Not affiliated with Cursor.",
                     "独立社区客户端，与 Cursor 官方无关联。",
-                ),
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             )
         }
     }
@@ -372,14 +424,13 @@ private fun FeatureLinks() {
             label("Continue on Cursor Web", "在 Cursor 网页中继续"),
             style = MaterialTheme.typography.titleMedium,
         )
-        Text(
+        Description(
             label(
                 "Automations, Codebase, Desktop, Terminal and Files open in your browser.",
                 "自动化、Codebase、桌面、终端及文件功能将在浏览器中打开。",
-            ),
-            fontSize = 13.sp,
+            )
         )
-        OutlinedButton(onClick = { openHttps(context, "https://cursor.com/agents") }) {
+        CursorSecondaryButton(onClick = { openHttps(context, "https://cursor.com/agents") }) {
             Text(label("Open Cursor Web ↗", "打开 Cursor 网页 ↗"))
         }
     }
@@ -388,45 +439,55 @@ private fun FeatureLinks() {
 @Composable
 fun UsageCapsule(usage: UsageSnapshot?, preferences: Preferences, click: () -> Unit) {
     if (!preferences.cursor && !preferences.other) return
+    val colors = CursorTheme.colors
     val remaining = label("remaining", "剩余")
     val used = label("used", "已用")
     val mode = if (preferences.remaining) remaining else used
+    val cursorValue = usageValue(usage, true, preferences.remaining)
+    val otherValue = usageValue(usage, false, preferences.remaining)
+    val figures = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
     Surface(
         onClick = click,
         shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        color = colors.card,
+        contentColor = colors.fg,
+        border = BorderStroke(1.dp, colors.border02),
     ) {
         FlowRow(
             Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
             if (preferences.cursor)
                 Text(
-                    "● Cursor ${usageValue(usage, true, preferences.remaining)}",
-                    color = MaterialTheme.colorScheme.onSurface,
+                    pool("●", colors.poolCursor, "Cursor $cursorValue"),
+                    style = figures,
                     modifier =
                         Modifier.semantics {
-                            contentDescription =
-                                "Cursor Model " +
-                                    usageValue(usage, true, preferences.remaining) +
-                                    " $mode"
+                            contentDescription = "Cursor Model $cursorValue $mode"
                         },
                 )
             if (preferences.other)
                 Text(
-                    "○ Other ${usageValue(usage, false, preferences.remaining)}",
+                    pool("○", colors.poolOther, "Other $otherValue"),
+                    style = figures,
                     modifier =
                         Modifier.semantics {
-                            contentDescription =
-                                "Other Model " +
-                                    usageValue(usage, false, preferences.remaining) +
-                                    " $mode"
+                            contentDescription = "Other Model $otherValue $mode"
                         },
                 )
-            Text(mode, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Note(mode)
         }
     }
 }
+
+/** Colors only the pool marker so the capsule text stays identical for tests and TalkBack. */
+private fun pool(marker: String, tint: Color, text: String): AnnotatedString =
+    buildAnnotatedString {
+        withStyle(SpanStyle(color = tint)) { append(marker) }
+        append(" ")
+        append(text)
+    }
 
 fun usageValue(snapshot: UsageSnapshot?, cursor: Boolean, remaining: Boolean): String =
     if (snapshot?.unlimited == true) "∞"
@@ -439,40 +500,49 @@ private fun UsagePanel(
     connected: Boolean,
     refresh: () -> Unit,
 ) {
+    val colors = CursorTheme.colors
     Column(
         Modifier.padding(24.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Text("Cursor Usage", style = MaterialTheme.typography.headlineSmall)
-        Text(
+        Description(
             if (connected) label("Account quota · last successful snapshot", "账户额度 · 最近成功快照")
             else label("Connect a web session in Settings to view usage.", "在设置中连接网页会话以查看用量。")
         )
         val now = System.currentTimeMillis()
         listOf(true, false).forEach { cursor ->
             if (if (cursor) preferences.cursor else preferences.other) {
+                val tint = if (cursor) colors.poolCursor else colors.poolOther
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(if (cursor) "Cursor Model" else "Other Model")
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Dot(tint)
+                            Text(if (cursor) "Cursor Model" else "Other Model")
+                        }
                         Text(
                             usageValue(usage, cursor, preferences.remaining),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontFamily = FontFamily.Monospace,
+                            style =
+                                MaterialTheme.typography.headlineSmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontFeatureSettings = "tnum",
+                                ),
                         )
                     }
-                    Text(
+                    Note(
                         if (preferences.remaining) label("Remaining", "剩余额度")
-                        else label("Used", "已用额度"),
-                        fontSize = 12.sp,
+                        else label("Used", "已用额度")
                     )
                     val value = usage?.value(cursor, preferences.remaining)
                     if (value != null && !usage.unlimited) {
-                        LinearProgressIndicator(
-                            progress = { (value / 100).toFloat() },
-                            modifier = Modifier.fillMaxWidth().height(8.dp),
-                            color =
-                                if (cursor) frost else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        CursorProgress((value / 100).toFloat(), tint)
                         val pace = if (preferences.pace) usage.pace(now) else null
                         if (pace != null) {
                             val raw = if (cursor) usage.cursorUsed else usage.otherUsed
@@ -482,11 +552,10 @@ private fun UsagePanel(
                                     -1 -> label("Slower than billing pace", "使用慢于账单周期节奏")
                                     else -> label("On pace", "节奏正常")
                                 }
-                            Text(
+                            Note(
                                 text +
                                     if (pace.estimated) label(" · estimated cycle", " · 估算周期")
-                                    else "",
-                                fontSize = 12.sp,
+                                    else ""
                             )
                         }
                     }
@@ -495,20 +564,21 @@ private fun UsagePanel(
         }
         if (usage != null) {
             HorizontalDivider()
-            Text(label("Updated ", "更新于 ") + time(usage.fetchedAt), fontSize = 12.sp)
+            Note(label("Updated ", "更新于 ") + time(usage.fetchedAt))
             if (!usage.unlimited && usage.cycleEnd != null) {
-                Text(label("Resets ", "重置时间 ") + time(usage.cycleEnd), fontSize = 12.sp)
+                Note(label("Resets ", "重置时间 ") + time(usage.cycleEnd))
             }
             if (usage.pendingReset(now)) Text(label("Awaiting new billing cycle data", "等待新账单周期数据"))
         }
         if (preferences.paused) Text(label("Automatic refresh paused", "自动刷新已暂停"))
-        Button(onClick = refresh, enabled = connected) { Text(label("Refresh usage", "刷新用量")) }
-        Text(
+        CursorButton(onClick = refresh, enabled = connected) {
+            Text(label("Refresh usage", "刷新用量"))
+        }
+        Note(
             label(
                 "Background updates are scheduled by Android, at least 15 minutes apart.",
                 "后台更新由 Android 调度，间隔至少 15 分钟。",
-            ),
-            fontSize = 12.sp,
+            )
         )
         Spacer(Modifier.height(20.dp))
     }
