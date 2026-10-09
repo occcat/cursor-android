@@ -15,7 +15,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -52,8 +51,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -117,42 +114,6 @@ fun CursorApp(
     widgetDestination: WidgetDestination? = null,
     consumeWidgetDestination: () -> Unit = {},
 ) {
-    val dark = isSystemInDarkTheme()
-    val colors =
-        if (dark)
-            darkColorScheme(
-                primary = Color(0xFFF0F0F0),
-                onPrimary = Color(0xFF181818),
-                secondary = Color(0xFFF0F0F0),
-                secondaryContainer = Color(0xFF333333),
-                onSecondaryContainer = Color(0xFFF0F0F0),
-                outline = Color(0xFF727272),
-                surfaceContainerLow = Color(0xFF242424),
-                surfaceContainerHigh = Color(0xFF292929),
-                surfaceContainerHighest = Color(0xFF333333),
-                onSurfaceVariant = Color(0xFF9A9A9A),
-                background = Color(0xFF181818),
-                surface = Color(0xFF181818),
-                surfaceContainer = Color(0xFF242424),
-                onSurface = Color(0xFFF0F0F0),
-            )
-        else
-            lightColorScheme(
-                primary = Color(0xFF141414),
-                onPrimary = Color.White,
-                secondary = Color(0xFF141414),
-                secondaryContainer = Color(0xFFE4E4DF),
-                onSecondaryContainer = Color(0xFF141414),
-                outline = Color(0xFF888888),
-                surfaceContainerLow = Color(0xFFF0F0EC),
-                surfaceContainerHigh = Color(0xFFE9E9E5),
-                surfaceContainerHighest = Color(0xFFE4E4DF),
-                onSurfaceVariant = Color(0xFF717171),
-                background = Color(0xFFFCFCFC),
-                surface = Color(0xFFFCFCFC),
-                surfaceContainer = Color(0xFFF0F0EC),
-                onSurface = Color(0xFF141414),
-            )
     val backStack = rememberNavBackStack(Destination("inbox"))
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -192,7 +153,7 @@ fun CursorApp(
     LaunchedEffect(state.usage, state.preferences) {
         UsageNotifications.update(context, state.usage, state.preferences)
     }
-    MaterialTheme(colorScheme = colors) {
+    CursorTheme {
         Scaffold(
             topBar = {
                 TopAppBar(
