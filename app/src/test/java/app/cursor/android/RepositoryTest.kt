@@ -6,7 +6,8 @@ import app.cursor.android.data.Credentials
 import app.cursor.android.data.CursorApi
 import app.cursor.android.data.CursorRepository
 import app.cursor.android.data.MemoryMigration
-import app.cursor.android.data.items
+import app.cursor.android.data.array
+import app.cursor.android.data.normalizeComposer
 import app.cursor.android.data.string
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -15,6 +16,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -144,14 +147,60 @@ class RepositoryTest {
     }
 
     @Test
-    fun paginationFollowsCursorAndDeduplicatesIds() = runTest {
-        server.enqueue(MockResponse().setBody("""{"items":[{"id":"a"}],"nextCursor":"two"}"""))
-        server.enqueue(MockResponse().setBody("""{"items":[{"id":"a"},{"id":"b"}]}"""))
+    fun paginationFollowsWebOffsetAndDeduplicatesBcIds() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setBody(
+                    """{"composers":[{"bcId":"a","name":"A"}],"hasMore":true,"nextPageOffset":20}"""
+                )
+        )
+        server.enqueue(
+            MockResponse()
+                .setBody("""{"composers":[{"bcId":"a"},{"bcId":"b","name":"B"}],"hasMore":false}""")
+        )
         repository.refreshAgents()
         repository.refreshAgents(true)
-        assertEquals(listOf("a", "b"), repository.agents.first()!!.items().map { it.string("id") })
-        server.takeRequest()
-        assertTrue(server.takeRequest().path!!.contains("cursor=two"))
+        val composers = repository.agents.first()!!.array("composers")
+        assertEquals(listOf("a", "b"), composers.map { it.string("bcId") })
+        assertEquals("POST", server.takeRequest().method)
+        val page = server.takeRequest()
+        assertEquals("/api/background-composer/list", page.path)
+        val body = page.body.readUtf8()
+        assertTrue(body.contains("last_message_activity_at_ms_offset"))
+        assertFalse(body.contains("nextCursor"))
+        assertFalse(body.contains("\"items\""))
+    }
+
+    @Test
+    fun secretMetadataDropsValuesAndEmptyArtifactsStayEmpty() = runTest {
+        server.enqueue(
+            MockResponse().setBody("""{"secrets":[{"name":"TOKEN","value":"hidden"}]}""")
+        )
+        val secrets = repository.secrets("env")
+        assertEquals("TOKEN", secrets.array("secrets").single().string("name"))
+        assertFalse(cache.get("secrets/env")!!.json.contains("hidden"))
+        server.enqueue(MockResponse().setBody("{}"))
+        assertTrue(repository.artifacts("bc").array("artifacts").isEmpty())
+    }
+
+    @Test
+    fun webListAndDetailTolerateMissingFields() = runTest {
+        server.enqueue(MockResponse().setBody("""{"composers":[{"name":"only"}]}"""))
+        repository.refreshAgents()
+        val row = repository.agents.first()!!.array("composers").single()
+        assertEquals("", row.string("bcId"))
+        assertEquals("only", row.string("name"))
+        val detail =
+            normalizeComposer("bc-1", Json.parseToJsonElement("""{"composers":[{}]}""").jsonObject)
+        assertEquals("bc-1", detail.string("bcId"))
+        assertEquals("", detail.string("status"))
+        val usage =
+            app.cursor.android.domain.UsageSnapshot.fromJson(
+                Json.parseToJsonElement("""{"individualUsage":{"plan":{}}}""").jsonObject,
+                1,
+            )
+        assertNull(usage.cursorUsed)
+        assertNull(usage.otherUsed)
     }
 
     @Test

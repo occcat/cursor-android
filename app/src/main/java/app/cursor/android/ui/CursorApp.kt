@@ -73,7 +73,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.Lifecycle
@@ -84,7 +83,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import app.cursor.android.data.Preferences
-import app.cursor.android.data.items
+import app.cursor.android.data.array
 import app.cursor.android.data.string
 import app.cursor.android.domain.UsageSnapshot
 import app.cursor.android.domain.isGoogleSignInHost
@@ -99,7 +98,10 @@ import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
 @Serializable private data class Destination(val screen: String, val id: String = "") : NavKey
@@ -246,10 +248,7 @@ fun CursorApp(
                                             backStack.removeLastOrNull()
                                             backStack.add(Destination("detail", it))
                                         }
-                                    "detail" ->
-                                        AgentDetail(route.id, state, model) {
-                                            backStack.removeLastOrNull()
-                                        }
+                                    "detail" -> AgentDetail(route.id, state, model)
                                     "settings" ->
                                         SettingsScreen(
                                             state,
@@ -357,7 +356,7 @@ private fun Inbox(
                 CursorChip(archived, { archived = !archived }, label("Include archived", "包含归档"))
             }
             val agents =
-                state.agents?.items().orEmpty().filter {
+                state.agents?.array("composers").orEmpty().filter {
                     (archived || it.string("status") != "ARCHIVED") &&
                         it.string("name").contains(query, ignoreCase = true)
                 }
@@ -367,8 +366,8 @@ private fun Inbox(
                         label("No agents here yet. Start with a task.", "暂无 Agent，创建一个任务开始。")
                     )
                 }
-            items(agents, key = { it.string("id") }) { agent ->
-                CursorCard(Modifier.fillMaxWidth(), onClick = { detail(agent.string("id")) }) {
+            items(agents, key = { it.string("bcId").ifBlank { it.string("name") } }) { agent ->
+                CursorCard(Modifier.fillMaxWidth(), onClick = { detail(agent.string("bcId")) }) {
                     Column(
                         Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -382,12 +381,12 @@ private fun Inbox(
                             itemVerticalAlignment = Alignment.CenterVertically,
                         ) {
                             AgentStatus(agent.string("status"))
-                            Note(agent.string("updatedAt"))
+                            Note(updatedLabel(agent))
                         }
                     }
                 }
             }
-            if (!state.agents?.string("nextCursor").isNullOrBlank())
+            if ((state.agents?.get("hasMore") as? JsonPrimitive)?.booleanOrNull == true)
                 item {
                     CursorSecondaryButton(onClick = { model.refresh(true) }) {
                         Text(label("Load more", "加载更多"))
@@ -574,6 +573,12 @@ private fun UsagePanel(
     }
 }
 
+private fun updatedLabel(agent: JsonObject): String {
+    val raw = (agent["updatedAtMs"] as? JsonPrimitive)?.contentOrNull
+    val millis = raw?.toLongOrNull()
+    return if (millis != null) time(millis) else agent.string("updatedAt")
+}
+
 private fun time(value: Long): String =
     DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(value))
 
@@ -626,10 +631,10 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
             state.local.repositories.take(10).forEach { repo ->
                 CursorActionChip(
                     onClick = {
-                        repository = repo.string("url")
+                        repository = repo.string("htmlUrl")
                         environment = ""
                     },
-                    label = repo.string("url").substringAfterLast('/'),
+                    label = repo.string("htmlUrl").substringAfterLast('/'),
                 )
             }
         }
@@ -641,12 +646,12 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
             )
             state.local.environments.forEach { env ->
                 CursorChip(
-                    environment == env.string("name"),
+                    environment == env.string("publicId"),
                     {
-                        environment = env.string("name")
+                        environment = env.string("publicId")
                         repository = ""
                     },
-                    label = env.string("name"),
+                    label = env.string("name").ifBlank { env.string("publicId") },
                 )
             }
         }
@@ -659,9 +664,12 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
             )
             state.local.models.forEach { item ->
                 CursorChip(
-                    selectedModel == item.string("id"),
-                    { selectedModel = item.string("id") },
-                    label = item.string("displayName").ifBlank { item.string("id") },
+                    selectedModel == item.string("serverModelName"),
+                    { selectedModel = item.string("serverModelName") },
+                    label =
+                        item.string("clientDisplayName").ifBlank {
+                            item.string("serverModelName")
+                        },
                 )
             }
         }
@@ -697,17 +705,18 @@ private fun CreateAgent(state: UiState, model: CursorViewModel, complete: (Strin
 }
 
 @Composable
-private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back: () -> Unit) {
+private fun AgentDetail(id: String, state: UiState, model: CursorViewModel) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var followUp by rememberSaveable(id) { mutableStateOf("") }
     var confirm by remember { mutableStateOf<String?>(null) }
     var showArtifacts by rememberSaveable { mutableStateOf(false) }
+    var artifactBody by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(id, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { model.detail(id).join() }
     }
     DisposableEffect(id) { onDispose { model.stopWatching() } }
-    val agent = state.local.detail?.takeIf { it.string("id") == id }
+    val agent = state.local.detail?.takeIf { it.string("bcId") == id }
     if (agent == null) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(label("Loading this workspace…", "正在加载此工作区…"))
@@ -754,63 +763,30 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
         }
         if (showArtifacts) {
             items(state.local.artifacts) { artifact ->
-                CursorSecondaryButton(
-                    onClick = {
-                        model.artifactUrl(id, artifact.string("path")) { openHttps(context, it) }
-                    },
-                    modifier = Modifier.animateItem(fadeInSpec = tween(CursorMotion.slowMillis)),
-                ) {
-                    Text(artifact.string("path"))
-                }
-            }
-            if (state.local.artifacts.isEmpty())
-                item { Description(label("No artifacts returned.", "暂无产物。")) }
-        }
-        if (state.local.streamText.isNotBlank())
-            item {
-                CursorCard(Modifier.fillMaxWidth()) {
-                    Column(
-                        Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                val title =
+                    listOf("path", "name", "absolutePath")
+                        .map { artifact.string(it) }
+                        .firstOrNull { it.isNotBlank() }
+                if (title != null)
+                    CursorSecondaryButton(
+                        onClick = { model.artifactText(id, artifact) { artifactBody = it } },
+                        modifier =
+                            Modifier.animateItem(fadeInSpec = tween(CursorMotion.slowMillis)),
                     ) {
-                        Text(
-                            label("Live output", "实时输出"),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = CursorTheme.colors.accentText,
-                        )
-                        SelectionContainer {
-                            Text(
-                                state.local.streamText,
-                                style =
-                                    MaterialTheme.typography.bodySmall.copy(
-                                        fontFamily = FontFamily.Monospace,
-                                        lineHeight = 18.sp,
-                                    ),
-                            )
+                        Text(title)
+                    }
+            }
+            if (
+                state.local.artifacts.isEmpty() ||
+                    state.local.artifacts.none { artifact ->
+                        listOf("path", "name", "absolutePath").any {
+                            artifact.string(it).isNotBlank()
                         }
                     }
-                }
-            }
-        items(state.local.runs, key = { it.string("id") }) { run ->
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Note(run.string("status") + " · " + run.string("createdAt"))
-                if (run.string("result").isNotBlank())
-                    SelectionContainer { Text(run.string("result")) }
-                if (run.string("status") in listOf("CREATING", "RUNNING")) {
-                    CursorSecondaryButton(onClick = { confirm = "cancel" }) {
-                        Text(label("Cancel active run", "取消运行"))
-                    }
-                }
-                HorizontalDivider()
-            }
+            )
+                item { Description(label("No artifacts returned.", "暂无产物。")) }
         }
         item {
-            Note(
-                label(
-                    "Historical prompts are not provided by the public v1 API.",
-                    "公开 v1 API 不提供历史用户提示词。",
-                )
-            )
             CursorTextField(
                 followUp,
                 { followUp = it },
@@ -834,12 +810,20 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
             }
         }
         item { FeatureLinks() }
-        item {
-            CursorTextButton(onClick = { confirm = "delete" }, tone = CursorTone.Danger) {
-                Text(label("Delete agent permanently", "永久删除 Agent"))
-            }
-        }
     }
+    if (artifactBody != null)
+        CursorAlertDialog(
+            onDismissRequest = { artifactBody = null },
+            title = { Text(label("Artifact", "产物")) },
+            text = {
+                SelectionContainer {
+                    Text(artifactBody.orEmpty().ifBlank { label("No bytes returned.", "没有返回内容。") })
+                }
+            },
+            confirmButton = {
+                CursorTextButton(onClick = { artifactBody = null }) { Text(label("Close", "关闭")) }
+            },
+        )
     if (confirm != null)
         CursorAlertDialog(
             onDismissRequest = { confirm = null },
@@ -847,12 +831,6 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
             text = {
                 Text(
                     when (confirm) {
-                        "delete" ->
-                            label(
-                                "Permanently delete this agent and its workspace?",
-                                "永久删除 Agent 及其工作区？",
-                            )
-                        "cancel" -> label("Cancel the active run?", "取消当前运行？")
                         "archive" -> label("Archive this agent?", "归档此 Agent？")
                         else -> label("Restore this agent?", "恢复此 Agent？")
                     }
@@ -863,19 +841,9 @@ private fun AgentDetail(id: String, state: UiState, model: CursorViewModel, back
                     onClick = {
                         val action = confirm ?: return@CursorTextButton
                         confirm = null
-                        model.agentAction(
-                            id,
-                            action,
-                            state.local.runs
-                                .firstOrNull {
-                                    it.string("status") in listOf("CREATING", "RUNNING")
-                                }
-                                ?.string("id"),
-                        ) {
-                            if (action == "delete") back()
-                        }
+                        model.agentAction(id, action, null) {}
                     },
-                    tone = if (confirm == "delete") CursorTone.Danger else CursorTone.Default,
+                    tone = CursorTone.Default,
                 ) {
                     Text(label("Confirm", "确认"))
                 }
@@ -1033,8 +1001,8 @@ private fun SettingsScreen(
                 Text(label("Load environments", "加载环境"))
             }
             state.local.environments.forEach { item ->
-                CursorTextButton(onClick = { environment(item.string("id")) }) {
-                    Text(item.string("name"))
+                CursorTextButton(onClick = { environment(item.string("publicId")) }) {
+                    Text(item.string("name").ifBlank { item.string("publicId") })
                 }
             }
         }
@@ -1196,7 +1164,7 @@ private fun EnvironmentScreen(id: String, state: UiState, model: CursorViewModel
     var confirmSave by remember { mutableStateOf(false) }
     var invalidJson by remember { mutableStateOf(false) }
     LaunchedEffect(id) { model.environment(id) }
-    val loaded = state.local.environment?.string("id") == id
+    val loaded = state.local.environment?.string("publicId") == id
     LaunchedEffect(state.local.environment, id) {
         name = state.local.environment?.string("name").orEmpty()
         configuration = state.local.environment?.string("environmentJson").orEmpty()

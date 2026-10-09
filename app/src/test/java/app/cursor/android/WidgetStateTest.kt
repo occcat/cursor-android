@@ -54,7 +54,9 @@ class WidgetStateTest {
     @Test
     fun cachedAgentRowsPreserveAgentStatusAndHideTitlesByDefault() {
         val agent =
-            Json.parseToJsonElement("""{"id":"bc-a","name":"Private project","status":"ACTIVE"}""")
+            Json.parseToJsonElement(
+                """{"bcId":"bc-a","name":"Private project","status":"ACTIVE"}"""
+            )
                 .jsonObject
         val state =
             WidgetState(

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.cursor.android.data.CursorRepository
 import app.cursor.android.data.Preferences
 import app.cursor.android.data.UserPreferences
+import app.cursor.android.data.array
 import app.cursor.android.data.items
 import app.cursor.android.data.string
 import app.cursor.android.domain.UsageSnapshot
@@ -72,12 +73,12 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
     }
 
     fun catalog() = action {
-        val models = repository.cachedResource(listOf("models"))
-        local.update { it.copy(models = models.items()) }
+        val models = repository.models()
+        local.update { it.copy(models = models.array("models")) }
         val repos = repository.repositories()
-        local.update { it.copy(repositories = repos.items()) }
-        val environments = repository.cachedResource(listOf("environments"))
-        local.update { it.copy(environments = environments.items()) }
+        local.update { it.copy(repositories = repos.array("repos")) }
+        val environments = repository.environments()
+        local.update { it.copy(environments = environments.array("environments")) }
     }
 
     fun create(
@@ -96,14 +97,8 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
     fun detail(id: String) = action {
         streaming?.cancel()
         local.update { it.copy(detail = null, runs = emptyList(), streamText = "") }
-        val detail = repository.cachedResource(listOf("agents", id))
-        local.update { it.copy(detail = detail) }
-        val runs = repository.cachedResource(listOf("agents", id, "runs"))
-        local.update { it.copy(runs = runs.items()) }
-        val run = runs.items().firstOrNull()
-        if (run != null && run.string("status") in listOf("CREATING", "RUNNING")) {
-            watch(id, run.string("id"))
-        }
+        val detail = repository.composer(id)
+        local.update { it.copy(detail = detail, streamText = "") }
     }
 
     fun stopWatching() {
@@ -156,18 +151,13 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
     }
 
     fun artifacts(id: String) = action {
-        val response = repository.cachedResource(listOf("agents", id, "artifacts"))
-        local.update { it.copy(artifacts = response.items()) }
+        val response = repository.artifacts(id)
+        local.update { it.copy(artifacts = response.array("artifacts")) }
     }
 
-    fun artifactUrl(id: String, path: String, open: (String) -> Unit) = action {
-        val response =
-            repository.api.request(
-                "GET",
-                listOf("v1", "agents", id, "artifacts", "download"),
-                query = mapOf("path" to path),
-            )
-        open(response.string("url"))
+    fun artifactText(id: String, artifact: JsonObject, show: (String) -> Unit) = action {
+        val response = repository.artifactBytes(id, artifact)
+        show(decodeArtifact(response.string("content")))
     }
 
     fun webSettings(patch: JsonObject? = null) = action {
@@ -178,13 +168,13 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
 
     fun environment(id: String) = action {
         local.update { it.copy(environment = null, secrets = emptyList()) }
-        val resource = repository.cachedResource(listOf("environments", id))
-        val secrets = repository.cachedResource(listOf("environments", id, "secrets"))
-        local.update { it.copy(environment = resource, secrets = secrets.items()) }
+        val resource = repository.environment(id)
+        val secrets = repository.secrets(id)
+        local.update { it.copy(environment = resource, secrets = secrets.array("secrets")) }
     }
 
     fun saveEnvironment(id: String, body: JsonObject) = action {
-        require(local.value.environment?.string("id") == id) {
+        require(local.value.environment?.string("publicId") == id) {
             "Reload this environment before saving"
         }
         repository.api.request("PATCH", listOf("v1", "environments", id), body)
@@ -193,7 +183,7 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
     }
 
     fun secret(id: String, name: String, body: JsonObject?, version: String? = null) = action {
-        require(local.value.environment?.string("id") == id) {
+        require(local.value.environment?.string("publicId") == id) {
             "Reload this environment before saving"
         }
         if (body != null) {
@@ -207,8 +197,8 @@ constructor(private val repository: CursorRepository, val settings: UserPreferen
             body,
             if (version == null) emptyMap() else mapOf("id" to version),
         )
-        val secrets = repository.cachedResource(listOf("environments", id, "secrets"))
-        local.update { it.copy(secrets = secrets.items()) }
+        val secrets = repository.secrets(id)
+        local.update { it.copy(secrets = secrets.array("secrets")) }
     }
 
     fun boolean(name: String, value: Boolean) = action { settings.boolean(name, value) }
@@ -250,6 +240,14 @@ data class LocalState(
     val webSettings: JsonObject? = null,
     val secrets: List<JsonObject> = emptyList(),
 )
+
+internal fun decodeArtifact(content: String): String {
+    if (content.isBlank()) return ""
+    return runCatching {
+            String(java.util.Base64.getDecoder().decode(content), Charsets.UTF_8)
+        }
+        .getOrDefault("")
+}
 
 data class UiState(
     val local: LocalState = LocalState(),

@@ -15,8 +15,10 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
@@ -26,6 +28,9 @@ fun JsonObject.string(name: String): String = (get(name) as? JsonPrimitive)?.con
 
 fun JsonObject.items(): List<JsonObject> =
     (get("items") as? JsonArray)?.mapNotNull { it as? JsonObject }.orEmpty()
+
+fun JsonObject.array(name: String): List<JsonObject> =
+    (get(name) as? JsonArray)?.mapNotNull { it as? JsonObject }.orEmpty()
 
 data class AgentSnapshot(val agents: List<JsonObject>, val updatedAt: Long)
 
@@ -47,7 +52,7 @@ class CursorRepository(
         cache.observe("agents").map { entry ->
             entry?.let {
                 (Json.parseToJsonElement(it.json) as? JsonObject)?.let { value ->
-                    AgentSnapshot(value.items(), it.updatedAt)
+                    AgentSnapshot(value.array("composers"), it.updatedAt)
                 }
             }
         }
@@ -135,35 +140,164 @@ class CursorRepository(
     suspend fun refreshAgents(more: Boolean = false) {
         val session = generation
         val previous = cache.get("agents")?.json?.let(Json::parseToJsonElement) as? JsonObject
-        val cursor = if (more) previous?.string("nextCursor") else null
-        if (more && cursor.isNullOrBlank()) return
+        val hasMore = (previous?.get("hasMore") as? JsonPrimitive)?.booleanOrNull == true
+        val offset = if (more) previous?.get("nextPageOffset") else null
+        if (more && (!hasMore || offset == null)) return
+        val body = buildJsonObject {
+            put("n", 50)
+            put("include_status", true)
+            put("include_archived", true)
+            put("include_pinned_state", true)
+            if (more && offset != null) put("last_message_activity_at_ms_offset", offset)
+        }
         val response =
             try {
-                api.request(
-                    "GET",
-                    listOf("v1", "agents"),
-                    query =
-                        buildMap {
-                            put("limit", "100")
-                            put("includeArchived", "true")
-                            if (!cursor.isNullOrBlank()) put("cursor", cursor)
-                        },
-                )
+                api.request("POST", listOf("api", "background-composer", "list"), body)
             } catch (failure: ApiFailure) {
                 if (failure.status == 401) expire(session)
                 throw failure
             }
         val combined =
             if (more && previous != null) {
-                JsonObject(
-                    response +
-                        ("items" to
-                            JsonArray(
-                                (previous.items() + response.items()).distinctBy { it.string("id") }
-                            ))
-                )
+                val merged =
+                    (previous.array("composers") + response.array("composers")).distinctBy {
+                        it.string("bcId")
+                    }
+                JsonObject(response + ("composers" to JsonArray(merged)))
             } else response
         persist(session, "agents", combined.toString())
+    }
+
+    suspend fun composer(id: String): JsonObject {
+        val session = generation
+        val key = "composer/$id"
+        val result =
+            try {
+                api.request(
+                    "POST",
+                    listOf("api", "background-composer", "get-detailed-composer"),
+                    buildJsonObject {
+                        put("bcId", id)
+                        put("n", 1)
+                        put("includeTeamWide", true)
+                    },
+                )
+            } catch (failure: ApiFailure) {
+                if (failure.status == 401) expire(session)
+                throw failure
+            } catch (failure: IOException) {
+                val cached = cache.get(key) ?: throw failure
+                return Json.parseToJsonElement(cached.json).jsonObject
+            }
+        val normalized = normalizeComposer(id, result)
+        persist(session, key, normalized.toString())
+        return normalized
+    }
+
+    suspend fun models(): JsonObject = postCached(
+        "models",
+        listOf("api", "background-composer", "available-models"),
+    )
+
+    suspend fun environments(): JsonObject {
+        val session = generation
+        val shared =
+            authed(session) {
+                api.request(
+                    "POST",
+                    listOf("api", "background-composer", "list-environments"),
+                    buildJsonObject {},
+                )
+            }
+        val personal =
+            authed(session) {
+                api.request(
+                    "POST",
+                    listOf("api", "background-composer", "list-personal-environments"),
+                    buildJsonObject {},
+                )
+            }
+        val merged =
+            (shared.array("environments") + personal.array("environments")).distinctBy {
+                it.string("publicId")
+            }
+        val value = buildJsonObject { put("environments", JsonArray(merged)) }
+        persist(session, "environments", value.toString())
+        return value
+    }
+
+    suspend fun environment(id: String): JsonObject {
+        val session = generation
+        val result =
+            authed(session) {
+                api.request(
+                    "POST",
+                    listOf("api", "background-composer", "get-environment"),
+                    buildJsonObject {
+                        put("publicId", id)
+                        put("includeEnvironmentJson", true)
+                    },
+                )
+            }
+        val env = (result["environment"] as? JsonObject) ?: result
+        val normalized = buildJsonObject {
+            put("publicId", env.string("publicId").ifBlank { id })
+            put("name", env.string("name"))
+            put("environmentJson", environmentJsonText(env["environmentJson"]))
+        }
+        persist(session, "environment/$id", normalized.toString())
+        return normalized
+    }
+
+    suspend fun secrets(environmentId: String): JsonObject {
+        val session = generation
+        val result =
+            authed(session) {
+                api.request(
+                    "POST",
+                    listOf("api", "background-composer", "list-background-composer-secrets"),
+                    buildJsonObject { put("redact", true) },
+                )
+            }
+        val listed =
+            result.array("secrets").map { secret ->
+                JsonObject(secret.filterKeys { it != "value" && it != "secretValue" })
+            }
+        val value = buildJsonObject { put("secrets", JsonArray(listed)) }
+        persist(session, "secrets/$environmentId", value.toString())
+        return value
+    }
+
+    suspend fun artifacts(id: String): JsonObject {
+        val session = generation
+        val result =
+            authed(session) {
+                api.request(
+                    "POST",
+                    listOf("api", "background-composer", "list-artifacts"),
+                    buildJsonObject { put("bcId", id) },
+                )
+            }
+        val value = buildJsonObject { put("artifacts", JsonArray(result.array("artifacts"))) }
+        persist(session, "artifacts/$id", value.toString())
+        return value
+    }
+
+    suspend fun artifactBytes(id: String, artifact: JsonObject): JsonObject {
+        val session = generation
+        return authed(session) {
+            api.request(
+                "POST",
+                listOf("api", "background-composer", "get-artifact-bytes"),
+                buildJsonObject {
+                    put("bcId", id)
+                    listOf("path", "absolutePath", "name").forEach { field ->
+                        val present = artifact.string(field)
+                        if (present.isNotBlank()) put(field, present)
+                    }
+                },
+            )
+        }
     }
 
     suspend fun refreshUsage() {
@@ -202,7 +336,20 @@ class CursorRepository(
         if (cached != null && System.currentTimeMillis() - cached.updatedAt < 3_600_000L) {
             return Json.parseToJsonElement(cached.json).jsonObject
         }
-        return cachedResource(listOf("repositories"))
+        val session = generation
+        val result =
+            authed(session) {
+                api.request(
+                    "POST",
+                    listOf("api", "dashboard", "get-github-installations"),
+                    buildJsonObject {},
+                )
+            }
+        val repos =
+            result.array("installations").flatMap { installation -> installation.array("repos") }
+        val value = buildJsonObject { put("repos", JsonArray(repos)) }
+        persist(session, "repositories", value.toString())
+        return value
     }
 
     suspend fun create(
@@ -353,11 +500,50 @@ class CursorRepository(
         if (failures >= 5) throw IOException("Live connection paused; refresh to reconnect")
     }
 
+    private suspend fun postCached(key: String, path: List<String>): JsonObject {
+        val session = generation
+        val result =
+            authed(session) { api.request("POST", path, buildJsonObject {}) }
+        persist(session, key, result.toString())
+        return result
+    }
+
+    private suspend fun authed(session: Long, block: suspend () -> JsonObject): JsonObject =
+        try {
+            block()
+        } catch (failure: ApiFailure) {
+            if (failure.status == 401) expire(session)
+            throw failure
+        }
+
     private suspend fun persist(session: Long, key: String, json: String) =
         lock.withLock {
             if (generation == session) cache.put(CacheEntry(key, json, System.currentTimeMillis()))
         }
 }
+
+internal fun normalizeComposer(id: String, root: JsonObject): JsonObject {
+    val first = root.array("composers").firstOrNull()
+    val composer = (first?.get("composer") as? JsonObject) ?: first ?: JsonObject(emptyMap())
+    val bcId = composer.string("bcId").ifBlank { first?.string("bcId").orEmpty() }.ifBlank { id }
+    val status = composer.string("status").ifBlank { first?.string("status").orEmpty() }
+    val name = composer.string("name").ifBlank { first?.string("name").orEmpty() }
+    return JsonObject(
+        composer +
+            mapOf(
+                "bcId" to JsonPrimitive(bcId),
+                "status" to JsonPrimitive(status),
+                "name" to JsonPrimitive(name),
+            )
+    )
+}
+
+internal fun environmentJsonText(element: JsonElement?): String =
+    when (element) {
+        null -> ""
+        is JsonPrimitive -> element.contentOrNull.orEmpty()
+        else -> element.toString()
+    }
 
 private fun identityOf(me: JsonObject) = buildJsonObject {
     put("email", me.string("email"))

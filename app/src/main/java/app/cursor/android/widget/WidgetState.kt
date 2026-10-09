@@ -75,7 +75,7 @@ data class WidgetState(
         else {
             agents?.agents.orEmpty().mapIndexed { index, agent ->
                 WidgetAgent(
-                    id = agent.string("id"),
+                    id = agent.string("bcId"),
                     title =
                         if (preferences.widgetTitles) {
                             agent.string("name").ifBlank { text("Agent", "会话") + " ${index + 1}" }
