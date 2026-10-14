@@ -59,6 +59,15 @@ class NativeExperienceTest {
     }
 
     @Test
+    fun signInScreenShowsTheLoginPageInsteadOfABlankView() {
+        compose.onNodeWithText("Get started").performClick()
+        compose
+            .onNodeWithText("Sign in with an email code or GitHub, then connect this session.")
+            .assertExists()
+        compose.onNodeWithText("Open the login page").assertExists()
+    }
+
+    @Test
     fun permissionDenialAndUserStartedOverlayRemainSafe() = runBlocking {
         val usage =
             UsageSnapshot(

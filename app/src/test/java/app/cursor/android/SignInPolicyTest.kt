@@ -1,8 +1,10 @@
 package app.cursor.android
 
+import app.cursor.android.domain.isCloudflareChallengeHost
 import app.cursor.android.domain.isGoogleSignInHost
 import app.cursor.android.domain.isTrustedSignInHost
 import app.cursor.android.domain.isTrustedSignInUrl
+import app.cursor.android.domain.signInContentIsVisible
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,6 +20,25 @@ class SignInPolicyTest {
                 "github.com",
             )
             .forEach { assertTrue(isTrustedSignInHost(it)) }
+    }
+
+    @Test
+    fun cloudflareChallengeStaysInsideAndABlankInterstitialIsNotTheLoginPage() {
+        assertTrue(isCloudflareChallengeHost("challenges.cloudflare.com"))
+        assertTrue(isTrustedSignInHost("challenges.cloudflare.com"))
+        assertTrue(
+            isTrustedSignInUrl("https://challenges.cloudflare.com/cdn-cgi/challenge-platform/")
+        )
+        assertFalse(isTrustedSignInHost("accounts.google.com"))
+        assertFalse(signInContentIsVisible("Just a moment...", ""))
+        assertFalse(signInContentIsVisible("Just a moment...", "email GitHub"))
+        assertTrue(
+            signInContentIsVisible(
+                "Sign in",
+                "Continue with email code or GitHub",
+            )
+        )
+        assertTrue(signInContentIsVisible("登录", "用邮箱验证码或 GitHub 继续"))
     }
 
     @Test
