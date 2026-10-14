@@ -8,12 +8,14 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.webkit.CookieManager
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -88,6 +90,7 @@ import app.cursor.android.data.string
 import app.cursor.android.domain.UsageSnapshot
 import app.cursor.android.domain.isGoogleSignInHost
 import app.cursor.android.domain.isTrustedSignInUrl
+import app.cursor.android.domain.signInContentIsVisible
 import app.cursor.android.system.UsageNotifications
 import app.cursor.android.system.UsageOverlayService
 import app.cursor.android.widget.WidgetDestination
@@ -1099,45 +1102,30 @@ private fun Toggle(text: String, checked: Boolean, onChange: (Boolean) -> Unit) 
     }
 }
 
+private const val signInUrl = "https://cursor.com/agents"
+
+private fun openLoginPage(context: android.content.Context) {
+    val uri = Uri.parse(signInUrl)
+    val opened =
+        runCatching {
+            CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(context, uri)
+        }
+    if (opened.isFailure) openHttps(context, signInUrl)
+}
+
 @Composable
 private fun WebSignIn(model: CursorViewModel, back: () -> Unit) {
     val context = LocalContext.current
     var googleBlocked by remember { mutableStateOf(false) }
-    val web = remember {
-        WebView(context).apply {
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.allowFileAccess = false
-            settings.allowContentAccess = false
-            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
-            CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
-            webViewClient =
-                object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(
-                        view: WebView,
-                        request: WebResourceRequest,
-                    ): Boolean {
-                        val uri = request.url
-                        if (uri.scheme != "https") return true
-                        if (uri.host?.let(::isGoogleSignInHost) == true) {
-                            googleBlocked = true
-                            return true
-                        }
-                        val trusted = isTrustedSignInUrl(uri.toString())
-                        if (!trusted) openHttps(context, uri.toString())
-                        return !trusted
-                    }
-                }
-            loadUrl("https://cursor.com/agents")
-        }
+    var loginInBrowser by remember { mutableStateOf(false) }
+    var openedBrowser by remember { mutableStateOf(false) }
+    fun showLoginInBrowser() {
+        if (openedBrowser) return
+        openedBrowser = true
+        loginInBrowser = true
+        openLoginPage(context)
     }
-    DisposableEffect(web) {
-        onDispose {
-            web.stopLoading()
-            web.destroy()
-        }
-    }
-    Column {
+    Column(Modifier.fillMaxSize()) {
         Note(
             label(
                 "Sign in with an email code or GitHub, then connect this session.",
@@ -1168,14 +1156,26 @@ private fun WebSignIn(model: CursorViewModel, back: () -> Unit) {
                 CursorTextButton(
                     onClick = {
                         googleBlocked = false
-                        web.loadUrl("https://cursor.com/agents")
+                        openedBrowser = false
                     }
                 ) {
                     Text(label("Back to sign in", "返回登录"))
                 }
             }
         }
-        Row(Modifier.padding(horizontal = 16.dp)) {
+        if (loginInBrowser) {
+            Text(
+                label(
+                    "The Cursor login page is open in the browser.",
+                    "Cursor 登录页已在浏览器中打开。",
+                ),
+                Modifier.padding(horizontal = 16.dp),
+            )
+        }
+        Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CursorSecondaryButton(onClick = { openLoginPage(context) }) {
+                Text(label("Open the login page", "打开登录页"))
+            }
             CursorButton(
                 onClick = {
                     val cookie =
@@ -1187,7 +1187,69 @@ private fun WebSignIn(model: CursorViewModel, back: () -> Unit) {
                 Text(label("Connect this session", "连接此会话"))
             }
         }
-        if (!googleBlocked) AndroidView(factory = { web }, modifier = Modifier.fillMaxSize())
+        if (!googleBlocked) {
+            AndroidView(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                onRelease = { web ->
+                    web.stopLoading()
+                    web.destroy()
+                },
+                factory = { viewContext ->
+                    WebView(viewContext).apply {
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.allowFileAccess = false
+                        settings.allowContentAccess = false
+                        settings.mixedContentMode =
+                            android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                        webViewClient =
+                            object : WebViewClient() {
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView,
+                                    request: WebResourceRequest,
+                                ): Boolean {
+                                    val uri = request.url
+                                    if (uri.scheme != "https") return true
+                                    if (uri.host?.let(::isGoogleSignInHost) == true) {
+                                        googleBlocked = true
+                                        return true
+                                    }
+                                    val trusted = isTrustedSignInUrl(uri.toString())
+                                    if (!trusted) openHttps(viewContext, uri.toString())
+                                    return !trusted
+                                }
+
+                                override fun onReceivedError(
+                                    view: WebView,
+                                    request: WebResourceRequest,
+                                    error: WebResourceError,
+                                ) {
+                                    if (request.isForMainFrame) showLoginInBrowser()
+                                }
+
+                                override fun onPageFinished(view: WebView, url: String?) {
+                                    if (view.title.equals("Just a moment...", ignoreCase = true)) {
+                                        showLoginInBrowser()
+                                        return
+                                    }
+                                    view.evaluateJavascript(
+                                        "(document.body && document.body.innerText) || ''"
+                                    ) { raw ->
+                                        val body = raw.trim().removeSurrounding("\"")
+                                        if (!signInContentIsVisible(view.title, body) &&
+                                            url?.contains("authenticator.cursor.sh") == true
+                                        ) {
+                                            showLoginInBrowser()
+                                        }
+                                    }
+                                }
+                            }
+                        loadUrl(signInUrl)
+                    }
+                },
+            )
+        }
     }
 }
 

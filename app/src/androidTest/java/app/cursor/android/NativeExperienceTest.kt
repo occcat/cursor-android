@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -56,6 +57,14 @@ class NativeExperienceTest {
         compose.waitUntil(5_000) {
             AppCompatDelegate.getApplicationLocales().toLanguageTags() == "en"
         }
+    }
+
+    @Test
+    fun signInScreenShowsTheLoginPageInsteadOfABlankView() {
+        compose.onNodeWithText("Get started").performClick()
+        assertDrawn("Sign in with an email code or GitHub, then connect this session.")
+        assertDrawn("Open the login page")
+        screenshot("sign-in")
     }
 
     @Test
@@ -134,6 +143,12 @@ class NativeExperienceTest {
         instrumentation.uiAutomation.executeShellCommand(command).use { descriptor ->
             android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).readBytes()
         }
+    }
+
+    private fun assertDrawn(text: String) {
+        val node = compose.onNodeWithText(text).assertIsDisplayed().fetchSemanticsNode()
+        assertTrue(node.boundsInRoot.width > 0f)
+        assertTrue(node.boundsInRoot.height > 0f)
     }
 
     private fun screenshot(name: String) {
