@@ -62,7 +62,7 @@ Future<void> pumpPage(
           recentRepos: recentRepos,
           environments: environments,
           models: models,
-          onSubmit: recorder == null ? null : recorder.call,
+          onSubmit: recorder?.call,
         ),
       ),
     ),
