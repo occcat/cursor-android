@@ -130,7 +130,10 @@ void main() {
 
     test('a control-character offset is dropped', () {
       final Uint8List payload = bytes(
-        field(4, <int>[...field(1, <int>[1]), ...field(2, text('ok'))]),
+        field(4, <int>[
+          ...field(1, <int>[1]),
+          ...field(2, field(1, text('ok'))),
+        ]),
       );
       final ConversationUpdate update = decodeConversationPayload(payload);
       expect(update.offsetKey, isNull);
