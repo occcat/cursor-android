@@ -32,8 +32,11 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Settings'));
     await tester.pumpAndSettle();
     expect(find.text('Make it yours.'), findsOneWidget);
-    expect(find.textContaining('later update'), findsOneWidget);
-    expect(find.text('Start floating capsule'), findsNothing);
+    expect(find.textContaining('later update'), findsNothing);
+    final FilledButton capsule = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Start floating capsule'),
+    );
+    expect(capsule.onPressed, isNull);
     await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.text('Connect your workspace'), findsOneWidget);
