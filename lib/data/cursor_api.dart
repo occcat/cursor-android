@@ -219,6 +219,26 @@ class CursorApi {
     return id.toString();
   }
 
+  /// Pauses the agent [bcId] and returns whether the response says so.
+  ///
+  /// Ported from Kotlin 0.1.5 `CursorRepository.action` (`pause`). Posts the
+  /// trimmed [bcId] and returns [pauseExpressed] for the response, so an
+  /// empty body yields `false`. Goes through [request], so an
+  /// `invalid_csrf_token` failure mints a fresh token and retries once. A
+  /// blank [bcId] throws an [ArgumentError] before any network call.
+  Future<bool> pauseBackgroundComposer(String bcId) async {
+    final String agent = bcId.trim();
+    if (agent.isEmpty) {
+      throw ArgumentError.value(bcId, 'bcId', 'must not be blank');
+    }
+    final Map<String, dynamic> response = await request(
+      'POST',
+      const <String>['api', 'background-composer', 'pause'],
+      body: <String, dynamic>{'bcId': agent},
+    );
+    return pauseExpressed(response);
+  }
+
   /// Sends one JSON request and returns the response object.
   ///
   /// An `invalid_csrf_token` failure on a non-GET request mints a fresh token
@@ -510,6 +530,31 @@ class CursorApi {
 bool _anyStatus(int? status) => true;
 
 bool _isSuccessful(int status) => status >= 200 && status < 300;
+
+const List<String> _pauseKeys = <String>[
+  'status',
+  'paused',
+  'composer',
+  'bcId',
+  'success',
+];
+
+/// Whether a pause response says the agent paused, ported from Kotlin 0.1.5
+/// `pauseExpressed`.
+///
+/// An empty object is `false`. A `composers` list holding at least one object
+/// is `true`. Otherwise any of `status`, `paused`, `composer`, `bcId` and
+/// `success` makes it `true`.
+bool pauseExpressed(Map<String, dynamic> json) {
+  if (json.isEmpty) {
+    return false;
+  }
+  final Object? composers = json['composers'];
+  if (composers is List && composers.any((Object? item) => item is Map)) {
+    return true;
+  }
+  return _pauseKeys.any(json.containsKey);
+}
 
 Map<String, dynamic> _jsonObjectOrFailure(int status, String text) {
   if (text.trim().isEmpty) {
