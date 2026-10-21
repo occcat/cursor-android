@@ -308,6 +308,53 @@ class CursorApi {
     );
   }
 
+  /// Lists cloud environments: the shared ones, then the personal ones.
+  ///
+  /// Ported from Kotlin 0.1.5 `CursorRepository.environments`. Posts `{}` to
+  /// `list-environments` and then to `list-personal-environments`, and merges
+  /// both `environments` arrays by `publicId`, keeping the first. Items that
+  /// are not objects or lack a non-blank string `publicId` are skipped, and a
+  /// missing array counts as empty. Nothing is cached. Each call goes through
+  /// [request], so an `invalid_csrf_token` failure mints a fresh token and
+  /// retries once; a failure of the first call stops before the second.
+  Future<List<Map<String, dynamic>>> listEnvironments() async {
+    final Map<String, dynamic> shared = await request(
+      'POST',
+      const <String>['api', 'background-composer', 'list-environments'],
+      body: <String, dynamic>{},
+    );
+    final Map<String, dynamic> personal = await request(
+      'POST',
+      const <String>[
+        'api',
+        'background-composer',
+        'list-personal-environments',
+      ],
+      body: <String, dynamic>{},
+    );
+    final Set<String> seen = <String>{};
+    final List<Map<String, dynamic>> merged = <Map<String, dynamic>>[];
+    for (final Map<String, dynamic> response in <Map<String, dynamic>>[
+      shared,
+      personal,
+    ]) {
+      final Object? environments = response['environments'];
+      if (environments is! List) {
+        continue;
+      }
+      for (final Object? item in environments) {
+        if (item is! Map<String, dynamic>) {
+          continue;
+        }
+        final Object? id = item['publicId'];
+        if (id is String && id.trim().isNotEmpty && seen.add(id)) {
+          merged.add(item);
+        }
+      }
+    }
+    return merged;
+  }
+
   /// Sends one JSON request and returns the response object.
   ///
   /// An `invalid_csrf_token` failure on a non-GET request mints a fresh token
