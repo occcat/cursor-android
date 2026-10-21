@@ -8,14 +8,16 @@ import 'package:flutter_test/flutter_test.dart';
 
 const UsageSnapshot sample = UsageSnapshot(cursorUsed: 32, otherUsed: 61);
 
+/// Pumps the capsule and lets MaterialApp finish its theme cross-fade, so a
+/// brightness change is fully applied before the expectations run.
 Future<void> pumpCapsule(
   WidgetTester tester,
   UsageSnapshot? usage, {
   Preferences preferences = const Preferences(),
   VoidCallback? onTap,
   Brightness brightness = Brightness.light,
-}) {
-  return tester.pumpWidget(
+}) async {
+  await tester.pumpWidget(
     MaterialApp(
       theme: buildTheme(brightness),
       home: Scaffold(
@@ -29,6 +31,7 @@ Future<void> pumpCapsule(
       ),
     ),
   );
+  await tester.pumpAndSettle();
 }
 
 /// The tint of the marker span in the pool text [label].
