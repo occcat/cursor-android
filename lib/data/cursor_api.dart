@@ -1,0 +1,283 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:cursor_android/data/api_failure.dart';
+import 'package:cursor_android/data/cursor_api_headers.dart';
+import 'package:cursor_android/data/cursor_api_url.dart';
+import 'package:dio/dio.dart';
+
+/// Transport failure that keeps only the Dio error kind.
+///
+/// Dio errors carry the request options, including the Cookie header, so
+/// they are never rethrown from [CursorApi].
+class CursorNetworkFailure implements Exception {
+  const CursorNetworkFailure(this.kind);
+
+  /// The [DioExceptionType] name, for example `connectionTimeout`.
+  final String kind;
+
+  @override
+  String toString() => 'Network error · $kind';
+}
+
+/// JSON client for the cursor.com web session, ported from Kotlin 0.1.5.
+///
+/// The cookie is sent only to the session origin: production
+/// `https://cursor.com`, or [webBase] when [allowConfiguredOrigin] is set for
+/// tests. Redirects are never followed and there is never an `Authorization`
+/// header.
+class CursorApi {
+  CursorApi({
+    required this.cookie,
+    Uri? webBase,
+    this.allowConfiguredOrigin = false,
+    Dio? dio,
+  }) : webBase = webBase ?? Uri.parse('https://cursor.com/'),
+       _dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               connectTimeout: const Duration(seconds: 20),
+               receiveTimeout: const Duration(seconds: 90),
+               followRedirects: false,
+               validateStatus: _anyStatus,
+             ),
+           );
+
+  /// Reads the current session cookie.
+  final FutureOr<String?> Function() cookie;
+
+  /// Session origin and base path for every request.
+  final Uri webBase;
+
+  /// Lets tests send the cookie to a non-production [webBase].
+  final bool allowConfiguredOrigin;
+
+  final Dio _dio;
+  String? _csrfToken;
+
+  static const List<String> _bodyMethods = <String>[
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+  ];
+
+  static final RegExp _safeCode = RegExp(r'^[A-Za-z0-9_.\-]{1,64}$');
+
+  /// Forgets the cached CSRF token, for example after signing out.
+  void resetWebSession() {
+    _csrfToken = null;
+  }
+
+  /// Reads the web settings, or updates them when [patch] is given.
+  Future<Map<String, dynamic>> webSettings([Map<String, dynamic>? patch]) {
+    final String operation = patch == null ? 'get' : 'update';
+    return request('POST', <String>[
+      'api',
+      'background-composer',
+      '$operation-background-composer-user-settings',
+    ], body: patch);
+  }
+
+  /// Sends one JSON request and returns the response object.
+  ///
+  /// An `invalid_csrf_token` failure on a non-GET request mints a fresh token
+  /// once and retries once. Every other failure propagates unchanged.
+  Future<Map<String, dynamic>> request(
+    String method,
+    List<String> segments, {
+    Map<String, dynamic>? body,
+    Map<String, String> query = const <String, String>{},
+    String? cookieOverride,
+  }) async {
+    try {
+      return await _execute(method, segments, body, query, cookieOverride);
+    } on ApiFailure catch (failure) {
+      if (failure.code != 'invalid_csrf_token' || method == 'GET') {
+        rethrow;
+      }
+      await _refreshCsrf(cookieOverride);
+      return _execute(method, segments, body, query, cookieOverride);
+    }
+  }
+
+  Future<Map<String, dynamic>> _execute(
+    String method,
+    List<String> segments,
+    Map<String, dynamic>? body,
+    Map<String, String> query,
+    String? cookieOverride,
+  ) async {
+    final Response<String> response = await _send(
+      method,
+      segments,
+      body,
+      query,
+      cookieOverride,
+    );
+    final int status = response.statusCode ?? 0;
+    final String text = response.data ?? '';
+    if (!_isSuccessful(status)) {
+      throw _failure(response, text);
+    }
+    return _jsonObjectOrFailure(status, text);
+  }
+
+  Future<void> _refreshCsrf(String? cookieOverride) async {
+    final Response<String> response = await _send(
+      'GET',
+      const <String>['api', 'csrf-token'],
+      null,
+      const <String, String>{},
+      cookieOverride,
+    );
+    final int status = response.statusCode ?? 0;
+    if (!_isSuccessful(status)) {
+      throw _failure(response, response.data ?? '');
+    }
+    final Uri url = response.realUri;
+    if (!_allowed(url)) {
+      throw ApiFailure(status, 'invalid_csrf_token');
+    }
+    final String? token = _csrfFromSetCookie(
+      url,
+      response.headers['set-cookie'] ?? const <String>[],
+    );
+    if (token == null) {
+      throw ApiFailure(status, 'invalid_csrf_token');
+    }
+    _csrfToken = token;
+  }
+
+  Future<Response<String>> _send(
+    String method,
+    List<String> segments,
+    Map<String, dynamic>? body,
+    Map<String, String> query,
+    String? cookieOverride,
+  ) async {
+    final Uri url = buildApiUrl(
+      webBase: webBase,
+      segments: segments,
+      query: query,
+    );
+    if (!_allowed(url)) {
+      throw const ApiFailure(0, 'origin_rejected');
+    }
+    final String? credential = cookieOverride ?? await cookie();
+    if (credential == null || credential.trim().isEmpty) {
+      throw const ApiFailure(401, 'connection_required');
+    }
+    final bool hasBody = _bodyMethods.contains(method);
+    final Map<String, String> headers = <String, String>{
+      'Accept': 'application/json',
+      ...sessionHeaders(
+        url: url,
+        credential: credential,
+        csrfToken: _csrfToken,
+        method: method,
+      ),
+    };
+    try {
+      return await _dio.requestUri<String>(
+        url,
+        data: hasBody ? jsonEncode(body ?? <String, dynamic>{}) : null,
+        options: Options(
+          method: method,
+          headers: headers,
+          contentType: hasBody ? 'application/json' : null,
+          responseType: ResponseType.plain,
+          followRedirects: false,
+          validateStatus: _anyStatus,
+        ),
+      );
+    } on DioException catch (error) {
+      throw CursorNetworkFailure(error.type.name);
+    }
+  }
+
+  bool _allowed(Uri url) => cookieAllowed(
+    url: url,
+    origin: webBase,
+    allowConfiguredOrigin: allowConfiguredOrigin,
+  );
+
+  ApiFailure _failure(Response<String> response, String body) {
+    String code = 'request_failed';
+    try {
+      final Object? decoded = jsonDecode(body);
+      final Object? error = decoded is Map ? decoded['error'] : null;
+      final Object? value = error is Map ? error['code'] : null;
+      if (value is String || value is num || value is bool) {
+        final String text = '$value';
+        if (_safeCode.hasMatch(text)) {
+          code = text;
+        }
+      }
+    } on FormatException {
+      // Not JSON: keep request_failed.
+    }
+    final List<String>? retryAfter = response.headers['retry-after'];
+    return ApiFailure(
+      response.statusCode ?? 0,
+      code,
+      (retryAfter == null || retryAfter.isEmpty) ? null : retryAfter.last,
+    );
+  }
+}
+
+bool _anyStatus(int? status) => true;
+
+bool _isSuccessful(int status) => status >= 200 && status < 300;
+
+Map<String, dynamic> _jsonObjectOrFailure(int status, String text) {
+  if (text.trim().isEmpty) {
+    return <String, dynamic>{};
+  }
+  Object? decoded;
+  try {
+    decoded = jsonDecode(text);
+  } on FormatException {
+    decoded = null;
+  }
+  if (decoded is Map<String, dynamic>) {
+    return decoded;
+  }
+  throw ApiFailure(status, 'invalid_body');
+}
+
+/// First `csrf-token` or `cursor-csrf-token` cookie valid for [url].
+String? _csrfFromSetCookie(Uri url, List<String> values) {
+  for (final String header in values) {
+    final List<String> parts = header.split(';');
+    final int eq = parts.first.indexOf('=');
+    if (eq <= 0) {
+      continue;
+    }
+    final String name = parts.first.substring(0, eq).trim();
+    if (name != 'csrf-token' && name != 'cursor-csrf-token') {
+      continue;
+    }
+    if (!_domainMatches(url.host, parts.skip(1))) {
+      continue;
+    }
+    return parts.first.substring(eq + 1).trim();
+  }
+  return null;
+}
+
+bool _domainMatches(String host, Iterable<String> attributes) {
+  for (final String attribute in attributes) {
+    final int eq = attribute.indexOf('=');
+    if (eq < 0 || attribute.substring(0, eq).trim().toLowerCase() != 'domain') {
+      continue;
+    }
+    String domain = attribute.substring(eq + 1).trim().toLowerCase();
+    if (domain.startsWith('.')) {
+      domain = domain.substring(1);
+    }
+    return host == domain || host.endsWith('.$domain');
+  }
+  return true;
+}
