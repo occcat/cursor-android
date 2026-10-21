@@ -387,6 +387,37 @@ class CursorApi {
     };
   }
 
+  /// Lists redacted secret metadata without persisting it.
+  ///
+  /// Ported from Kotlin `CursorRepository.secrets`. Removes the exact keys
+  /// `value` and `secretValue` and copies the remaining fields as primitive
+  /// text; nested objects, arrays and null become empty strings rather than
+  /// exposing raw nested payloads. Uses [request] for the existing CSRF retry.
+  Future<List<Map<String, dynamic>>> listSecrets() async {
+    final Map<String, dynamic> response = await request(
+      'POST',
+      const <String>[
+        'api',
+        'background-composer',
+        'list-background-composer-secrets',
+      ],
+      body: <String, dynamic>{'redact': true},
+    );
+    final Object? secrets = response['secrets'];
+    if (secrets is! List) {
+      return <Map<String, dynamic>>[];
+    }
+    return <Map<String, dynamic>>[
+      for (final Object? secret in secrets)
+        if (secret is Map<String, dynamic>)
+          <String, dynamic>{
+            for (final MapEntry<String, dynamic> entry in secret.entries)
+              if (entry.key != 'value' && entry.key != 'secretValue')
+                entry.key: _primitiveText(entry.value),
+          },
+    ];
+  }
+
   /// Sends one JSON request and returns the response object.
   ///
   /// An `invalid_csrf_token` failure on a non-GET request mints a fresh token
