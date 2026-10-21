@@ -355,6 +355,38 @@ class CursorApi {
     return merged;
   }
 
+  /// Fetches one cloud environment with its `environment.json` as text.
+  ///
+  /// Ported from Kotlin 0.1.5 `CursorRepository.environment`. Posts the
+  /// trimmed [publicId] with `includeEnvironmentJson: true`, reads the nested
+  /// `environment` object (or the response itself) and returns `publicId`
+  /// (the requested id when blank), `name` and `environmentJson`. Nothing is
+  /// cached. Goes through [request], so an `invalid_csrf_token` failure mints
+  /// a fresh token and retries once. A blank [publicId] throws an
+  /// [ArgumentError] before any network call.
+  Future<Map<String, dynamic>> getEnvironment(String publicId) async {
+    final String id = publicId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(publicId, 'publicId', 'must not be blank');
+    }
+    final Map<String, dynamic> response = await request(
+      'POST',
+      const <String>['api', 'background-composer', 'get-environment'],
+      body: <String, dynamic>{
+        'publicId': id,
+        'includeEnvironmentJson': true,
+      },
+    );
+    final Object? nested = response['environment'];
+    final Map<dynamic, dynamic> environment = nested is Map ? nested : response;
+    final String found = _primitiveText(environment['publicId']);
+    return <String, dynamic>{
+      'publicId': found.trim().isEmpty ? id : found,
+      'name': _primitiveText(environment['name']),
+      'environmentJson': _environmentJsonText(environment['environmentJson']),
+    };
+  }
+
   /// Sends one JSON request and returns the response object.
   ///
   /// An `invalid_csrf_token` failure on a non-GET request mints a fresh token
@@ -670,6 +702,24 @@ bool pauseExpressed(Map<String, dynamic> json) {
     return true;
   }
   return _pauseKeys.any(json.containsKey);
+}
+
+/// The text of a JSON primitive, like Kotlin `JsonObject.string`; null,
+/// objects and arrays become empty.
+String _primitiveText(Object? value) =>
+    value is String || value is num || value is bool ? '$value' : '';
+
+/// `environment.json` as text, ported from Kotlin 0.1.5
+/// `environmentJsonText`: null is empty, a primitive keeps its content and an
+/// object or array becomes compact JSON.
+String _environmentJsonText(Object? element) {
+  if (element == null) {
+    return '';
+  }
+  if (element is String || element is num || element is bool) {
+    return '$element';
+  }
+  return jsonEncode(element);
 }
 
 Map<String, dynamic> _jsonObjectOrFailure(int status, String text) {
