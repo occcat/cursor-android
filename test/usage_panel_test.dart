@@ -63,7 +63,7 @@ void main() {
   testWidgets('connected shows both pools with bars', (
     WidgetTester tester,
   ) async {
-    await pumpPanel(tester, sample);
+    await pumpPanel(tester, sample, onRefresh: () {});
     expect(
       find.text('Account quota · last successful snapshot'),
       findsOneWidget,
