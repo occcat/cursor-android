@@ -166,9 +166,53 @@ class CursorApi {
 
   /// A new agent id: `bc-` followed by 32 lowercase hex digits from a secure
   /// random source.
-  static String newBackgroundComposerId([Random? random]) {
+  static String newBackgroundComposerId([Random? random]) =>
+      _prefixedHexId('bc-', random);
+
+  /// Sends a follow-up [prompt] to the agent [bcId] and returns the response.
+  ///
+  /// Ported from Kotlin 0.1.5 `CursorRepository.followUp`. The body carries
+  /// the trimmed [bcId], the trimmed [prompt] as both `followup` and
+  /// `followupMessage`, [followupId] (generated as `fu-` plus 32 random hex
+  /// digits when null or blank) and `expectedScope: personal`. Goes through
+  /// [request], so an `invalid_csrf_token` failure mints a fresh token and
+  /// retries once. A blank [bcId] or [prompt] throws an [ArgumentError]
+  /// before any network call.
+  Future<Map<String, dynamic>> addAsyncFollowupBackgroundComposer({
+    required String bcId,
+    required String prompt,
+    String? followupId,
+  }) async {
+    final String agent = bcId.trim();
+    if (agent.isEmpty) {
+      throw ArgumentError.value(bcId, 'bcId', 'must not be blank');
+    }
+    final String text = prompt.trim();
+    if (text.isEmpty) {
+      throw ArgumentError.value(prompt, 'prompt', 'must not be blank');
+    }
+    final String given = followupId?.trim() ?? '';
+    return request(
+      'POST',
+      const <String>['api', 'auth', 'addAsyncFollowupBackgroundComposer'],
+      body: <String, dynamic>{
+        'bcId': agent,
+        'followup': text,
+        'followupMessage': text,
+        'followupId': given.isEmpty ? newFollowupId() : given,
+        'expectedScope': 'personal',
+      },
+    );
+  }
+
+  /// A new follow-up id: `fu-` followed by 32 lowercase hex digits from a
+  /// secure random source.
+  static String newFollowupId([Random? random]) =>
+      _prefixedHexId('fu-', random);
+
+  static String _prefixedHexId(String prefix, Random? random) {
     final Random source = random ?? Random.secure();
-    final StringBuffer id = StringBuffer('bc-');
+    final StringBuffer id = StringBuffer(prefix);
     for (int index = 0; index < 16; index++) {
       id.write(source.nextInt(256).toRadixString(16).padLeft(2, '0'));
     }
