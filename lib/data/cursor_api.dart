@@ -418,6 +418,29 @@ class CursorApi {
     ];
   }
 
+  /// Stores the secret [name] with [value], asking the server to redact it.
+  ///
+  /// Ported from Kotlin `CursorRepository.putSecret`. Posts the trimmed
+  /// [name], the exact [value] and `redact: true`, and discards the response.
+  /// Nothing is cached and [value] is never put in an error. Uses [request]
+  /// for the existing CSRF retry. A blank [name] throws an [ArgumentError]
+  /// before any network call.
+  Future<void> putSecret(String name, String value) async {
+    final String key = name.trim();
+    if (key.isEmpty) {
+      throw ArgumentError.value(name, 'name', 'must not be blank');
+    }
+    await request(
+      'POST',
+      const <String>[
+        'api',
+        'background-composer',
+        'create-background-composer-secret',
+      ],
+      body: <String, dynamic>{'name': key, 'value': value, 'redact': true},
+    );
+  }
+
   /// Sends one JSON request and returns the response object.
   ///
   /// An `invalid_csrf_token` failure on a non-GET request mints a fresh token
