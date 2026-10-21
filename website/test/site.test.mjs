@@ -35,3 +35,14 @@ test("demo does not embed credentials, tracking, or live business API calls", as
     assert.match(headers, /frame-ancestors 'none'/);
     assert.match(headers, /connect-src 'self'/);
 });
+
+test("phone status bar uses inline SVG icons instead of glyphs", () => {
+    assert.doesNotMatch(html, /[▂▄▆▰]/);
+    const status = html.match(
+        /<div class="phone-status"[^>]*>([\s\S]*?)<div class="phone-appbar">/);
+    assert.ok(status, "Missing phone status bar");
+    assert.match(status[1], /class="phone-status-icons"/);
+    assert.equal([...status[1].matchAll(/<svg\b/g)].length, 3);
+    assert.match(status[1], /id="status-icon"/);
+    assert.match(status[1], /class="camera"/);
+});
