@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' show Random;
 import 'dart:typed_data';
 
 import 'package:cursor_android/data/api_failure.dart';
@@ -119,6 +120,60 @@ class CursorApi {
   /// Restores the archived agent [bcId].
   Future<Map<String, dynamic>> unarchiveAgent(String bcId) =>
       archiveBackgroundComposer(bcId, unarchive: true);
+
+  /// Starts a background agent from a snapshot and returns its `bcId`.
+  ///
+  /// Ported from Kotlin 0.1.5 `CursorRepository.create`. The body carries
+  /// [bcId] (generated as `bc-` plus 32 random hex digits when null or blank),
+  /// the trimmed [prompt] and `expectedScope: personal`. A non-blank [model]
+  /// adds `requestedModels`; a non-blank [environment] adds
+  /// `environment.publicId`, otherwise the first of [repos] becomes `repoUrl`.
+  /// Goes through [request], so an `invalid_csrf_token` failure mints a fresh
+  /// token and retries once. A blank [prompt] throws an [ArgumentError]
+  /// before any network call.
+  Future<String> startBackgroundComposerFromSnapshot({
+    required String prompt,
+    List<String> repos = const <String>[],
+    String model = '',
+    String environment = '',
+    String? bcId,
+  }) async {
+    final String text = prompt.trim();
+    if (text.isEmpty) {
+      throw ArgumentError.value(prompt, 'prompt', 'must not be blank');
+    }
+    final String given = bcId?.trim() ?? '';
+    final String id = given.isEmpty ? newBackgroundComposerId() : given;
+    await request(
+      'POST',
+      const <String>['api', 'auth', 'startBackgroundComposerFromSnapshot'],
+      body: <String, dynamic>{
+        'bcId': id,
+        'prompt': text,
+        if (model.trim().isNotEmpty)
+          'requestedModels': <Map<String, dynamic>>[
+            <String, dynamic>{'modelId': model},
+          ],
+        if (environment.trim().isNotEmpty)
+          'environment': <String, dynamic>{'publicId': environment}
+        else if (repos.isNotEmpty)
+          'repoUrl': repos.first,
+        'expectedScope': 'personal',
+      },
+    );
+    return id;
+  }
+
+  /// A new agent id: `bc-` followed by 32 lowercase hex digits from a secure
+  /// random source.
+  static String newBackgroundComposerId([Random? random]) {
+    final Random source = random ?? Random.secure();
+    final StringBuffer id = StringBuffer('bc-');
+    for (int index = 0; index < 16; index++) {
+      id.write(source.nextInt(256).toRadixString(16).padLeft(2, '0'));
+    }
+    return id.toString();
+  }
 
   /// Sends one JSON request and returns the response object.
   ///
