@@ -4,6 +4,10 @@ This file governs coding and commits only. Do not add product plans or business 
 
 ## Commits
 
+Commit 并按照 Conventional Commits 规范(尽量详细并且强制多行，只包括对改动内容的描述以及理由)填写中文 message。
+
+本条规则优先于本节下方与之冲突的条目（例如英文示例与验证命令要求）。
+
 Every commit must follow [Conventional Commits](https://www.conventionalcommits.org/).
 
 - Use a single-line subject: `type(scope): summary`.
