@@ -92,6 +92,34 @@ class CursorApi {
     ], body: patch);
   }
 
+  /// Archives the agent [bcId], or restores it when [unarchive] is true.
+  ///
+  /// Ported from Kotlin 0.1.5 `CursorRepository.action` (`archive` and
+  /// `unarchive`). Goes through [request], so an `invalid_csrf_token` failure
+  /// mints a fresh token and retries once. A blank [bcId] throws an
+  /// [ArgumentError] before any network call.
+  Future<Map<String, dynamic>> archiveBackgroundComposer(
+    String bcId, {
+    bool unarchive = false,
+  }) async {
+    if (bcId.trim().isEmpty) {
+      throw ArgumentError.value(bcId, 'bcId', 'must not be blank');
+    }
+    return request(
+      'POST',
+      const <String>['api', 'auth', 'archiveBackgroundComposer'],
+      body: <String, dynamic>{'bcId': bcId, if (unarchive) 'unarchive': true},
+    );
+  }
+
+  /// Archives the agent [bcId].
+  Future<Map<String, dynamic>> archiveAgent(String bcId) =>
+      archiveBackgroundComposer(bcId);
+
+  /// Restores the archived agent [bcId].
+  Future<Map<String, dynamic>> unarchiveAgent(String bcId) =>
+      archiveBackgroundComposer(bcId, unarchive: true);
+
   /// Sends one JSON request and returns the response object.
   ///
   /// An `invalid_csrf_token` failure on a non-GET request mints a fresh token
