@@ -43,10 +43,12 @@ class UsageGlanceWidget : GlanceAppWidget() {
     }
 
     override suspend fun providePreview(context: Context, widgetCategory: Int) {
-        val preferences =
-            context.getSharedPreferences(HomeWidgetPlugin.PREFERENCES, Context.MODE_PRIVATE)
         provideContent {
-            Content(context, HomeWidgetGlanceState(preferences), preview = true)
+            Content(
+                context,
+                HomeWidgetGlanceState(HomeWidgetPlugin.getData(context)),
+                preview = true,
+            )
         }
     }
 
