@@ -239,6 +239,35 @@ class CursorApi {
     return pauseExpressed(response);
   }
 
+  /// Lists the artifacts of the agent [bcId].
+  ///
+  /// Ported from Kotlin 0.1.5 `CursorRepository.artifacts`. Posts the
+  /// trimmed [bcId] and returns the objects in the response's `artifacts`
+  /// array. A missing or non-list `artifacts` yields an empty list, and items
+  /// that are not objects are skipped. Nothing is cached. Goes through
+  /// [request], so an `invalid_csrf_token` failure mints a fresh token and
+  /// retries once. A blank [bcId] throws an [ArgumentError] before any
+  /// network call.
+  Future<List<Map<String, dynamic>>> listArtifacts(String bcId) async {
+    final String agent = bcId.trim();
+    if (agent.isEmpty) {
+      throw ArgumentError.value(bcId, 'bcId', 'must not be blank');
+    }
+    final Map<String, dynamic> response = await request(
+      'POST',
+      const <String>['api', 'background-composer', 'list-artifacts'],
+      body: <String, dynamic>{'bcId': agent},
+    );
+    final Object? artifacts = response['artifacts'];
+    if (artifacts is! List) {
+      return <Map<String, dynamic>>[];
+    }
+    return <Map<String, dynamic>>[
+      for (final Object? item in artifacts)
+        if (item is Map<String, dynamic>) item,
+    ];
+  }
+
   /// Sends one JSON request and returns the response object.
   ///
   /// An `invalid_csrf_token` failure on a non-GET request mints a fresh token
