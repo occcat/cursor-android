@@ -82,6 +82,33 @@ extension CursorApiEnvironments on CursorApi {
     };
   }
 
+  /// Saves [environmentJson] as the `environment.json` of the personal
+  /// environment [publicId].
+  ///
+  /// Ported from Kotlin `CursorRepository.saveEnvironment`. Posts the trimmed
+  /// [publicId] and [environmentJson] passed through as given, and discards
+  /// the response. Nothing is cached. Uses [request] for the existing CSRF
+  /// retry. A blank [publicId] throws an [ArgumentError] before any network
+  /// call.
+  Future<void> saveEnvironment(String publicId, Object environmentJson) async {
+    final String id = publicId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(publicId, 'publicId', 'must not be blank');
+    }
+    await request(
+      'POST',
+      const <String>[
+        'api',
+        'background-composer',
+        'set-personal-environment-json',
+      ],
+      body: <String, dynamic>{
+        'publicId': id,
+        'environmentJson': environmentJson,
+      },
+    );
+  }
+
   /// Lists redacted secret metadata without persisting it.
   ///
   /// Ported from Kotlin `CursorRepository.secrets`. Removes the exact keys
