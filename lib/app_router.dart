@@ -1,9 +1,12 @@
 /// App routes. Every page gets stub, disconnected data for now: nothing here
-/// calls the network, reads storage or starts platform services. Later
-/// rounds replace the stubs with live state.
+/// calls the network or reads storage. The one platform call is the Settings
+/// floating capsule button, which opens the overlay permission screen or, once
+/// drawing over other apps is allowed, starts the overlay service. Later rounds
+/// replace the stubs with live state.
 library;
 
 import 'package:cursor_android/domain/preferences.dart';
+import 'package:cursor_android/system/overlay_bridge.dart';
 import 'package:cursor_android/ui/agent_detail_page.dart';
 import 'package:cursor_android/ui/create_agent_page.dart';
 import 'package:cursor_android/ui/environment_page.dart';
@@ -43,6 +46,14 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
             preferences: const Preferences(),
             onOpenEnvironment: (String publicId) =>
                 context.push('/environment/$publicId'),
+            onOpenFloatingCapsuleHelp: () async {
+              const OverlayBridge bridge = OverlayBridge();
+              if (!await bridge.canDrawOverlays()) {
+                await bridge.openOverlaySettings();
+              } else {
+                await bridge.startOverlay();
+              }
+            },
           ),
         ),
       ),
