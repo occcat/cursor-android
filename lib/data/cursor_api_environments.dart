@@ -135,6 +135,32 @@ extension CursorApiEnvironments on CursorApi {
       body: <String, dynamic>{'name': key, 'value': value, 'redact': true},
     );
   }
+
+  /// Revokes the secret [name], narrowed to its server [id] when given.
+  ///
+  /// Ported from Kotlin `CursorRepository.revokeSecret`. Posts the trimmed
+  /// [name] and, only when [id] is not blank, the trimmed [id], and discards
+  /// the response. Nothing is cached. Uses [request] for the existing CSRF
+  /// retry. A blank [name] throws an [ArgumentError] before any network call.
+  Future<void> revokeSecret(String name, {String? id}) async {
+    final String key = name.trim();
+    if (key.isEmpty) {
+      throw ArgumentError.value(name, 'name', 'must not be blank');
+    }
+    final String secretId = id?.trim() ?? '';
+    await request(
+      'POST',
+      const <String>[
+        'api',
+        'background-composer',
+        'revoke-background-composer-secret',
+      ],
+      body: <String, dynamic>{
+        'name': key,
+        if (secretId.isNotEmpty) 'id': secretId,
+      },
+    );
+  }
 }
 
 /// `environment.json` as text, ported from Kotlin 0.1.5
