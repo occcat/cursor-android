@@ -167,6 +167,9 @@ select:hover { border-color: var(--border-03); }
 .phone-status { height: 46px; padding: 13px 5px 0; display: flex; justify-content: space-between;
     font-size: 10px; font-weight: 600; }
 #status-icon { margin-left: 4px; color: var(--accent); }
+.phone-status-icons { display: inline-flex; align-items: center; gap: 5px; height: 12px;
+    color: inherit; }
+.phone-status-icons svg { display: block; height: 11px; width: auto; }
 .camera { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #000;
     top: 13px; left: calc(50% - 5px); }
 .phone-appbar { display: flex; align-items: center; justify-content: space-between;
