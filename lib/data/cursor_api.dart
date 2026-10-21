@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:cursor_android/data/api_failure.dart';
+import 'package:cursor_android/data/connect_stream.dart';
 import 'package:cursor_android/data/cursor_api_headers.dart';
 import 'package:cursor_android/data/cursor_api_url.dart';
 import 'package:dio/dio.dart';
@@ -20,7 +22,8 @@ class CursorNetworkFailure implements Exception {
   String toString() => 'Network error · $kind';
 }
 
-/// JSON client for the cursor.com web session, ported from Kotlin 0.1.5.
+/// JSON and Connect stream client for the cursor.com web session, ported
+/// from Kotlin 0.1.5.
 ///
 /// The cookie is sent only to the session origin: production
 /// `https://cursor.com`, or [webBase] when [allowConfiguredOrigin] is set for
@@ -63,6 +66,15 @@ class CursorApi {
     'DELETE',
   ];
 
+  static const List<String> _conversationSegments = <String>[
+    'api',
+    'connect-proxy',
+    'aiserver.v1.BackgroundComposerService',
+    'StreamConversation',
+  ];
+
+  static const String _connectType = 'application/connect+proto';
+
   static final RegExp _safeCode = RegExp(r'^[A-Za-z0-9_.\-]{1,64}$');
 
   /// Forgets the cached CSRF token, for example after signing out.
@@ -100,6 +112,147 @@ class CursorApi {
       await _refreshCsrf(cookieOverride);
       return _execute(method, segments, body, query, cookieOverride);
     }
+  }
+
+  /// Streams one agent conversation over Connect, calling [onUpdate] for each
+  /// data frame and once more with `end: true` when the stream finishes.
+  ///
+  /// An `invalid_csrf_token` failure mints a fresh token once and reopens the
+  /// stream once. Cancelling [cancelToken] aborts the request and the read
+  /// promptly with a [CursorNetworkFailure] of kind `cancel`.
+  Future<void> conversation(
+    String bcId,
+    String? offsetKey,
+    FutureOr<void> Function(ConversationUpdate update) onUpdate, {
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      await _openConversation(bcId, offsetKey, onUpdate, cancelToken);
+    } on ApiFailure catch (failure) {
+      if (failure.code != 'invalid_csrf_token') {
+        rethrow;
+      }
+      await _refreshCsrf(null);
+      await _openConversation(bcId, offsetKey, onUpdate, cancelToken);
+    }
+  }
+
+  Future<void> _openConversation(
+    String bcId,
+    String? offsetKey,
+    FutureOr<void> Function(ConversationUpdate update) onUpdate,
+    CancelToken? cancelToken,
+  ) async {
+    final Uri url = buildApiUrl(
+      webBase: webBase,
+      segments: _conversationSegments,
+    );
+    if (!_allowed(url)) {
+      throw const ApiFailure(0, 'origin_rejected');
+    }
+    final String? credential = await cookie();
+    if (credential == null || credential.trim().isEmpty) {
+      throw const ApiFailure(401, 'connection_required');
+    }
+    final Uint8List body = encodeConversationRequest(bcId, offsetKey);
+    final Map<String, String> headers = <String, String>{
+      ...sessionHeaders(
+        url: url,
+        credential: credential,
+        csrfToken: _csrfToken,
+        method: 'POST',
+      ),
+      'Accept': _connectType,
+      'Connect-Protocol-Version': '1',
+      Headers.contentLengthHeader: '${body.length}',
+    };
+    try {
+      final Response<ResponseBody> response = await _dio
+          .requestUri<ResponseBody>(
+            url,
+            data: Stream<Uint8List>.value(body),
+            cancelToken: cancelToken,
+            options: Options(
+              method: 'POST',
+              headers: headers,
+              contentType: _connectType,
+              responseType: ResponseType.stream,
+              followRedirects: false,
+              validateStatus: _anyStatus,
+            ),
+          );
+      final Stream<Uint8List> stream =
+          response.data?.stream ?? const Stream<Uint8List>.empty();
+      if (!_isSuccessful(response.statusCode ?? 0)) {
+        throw _failure(response, await _readText(stream));
+      }
+      await _readConversation(stream, onUpdate, cancelToken);
+    } on DioException catch (error) {
+      throw CursorNetworkFailure(error.type.name);
+    }
+  }
+
+  Future<void> _readConversation(
+    Stream<Uint8List> stream,
+    FutureOr<void> Function(ConversationUpdate update) onUpdate,
+    CancelToken? cancelToken,
+  ) async {
+    final StreamIterator<Uint8List> chunks = StreamIterator<Uint8List>(stream);
+    final Future<bool> cancelled = cancelToken == null
+        ? Completer<bool>().future
+        : cancelToken.whenCancel.then((DioException _) => false);
+    Uint8List buffer = Uint8List(0);
+    try {
+      while (true) {
+        final ({ConnectFrame frame, int next})? ready = _completeFrame(buffer);
+        if (ready != null) {
+          buffer = buffer.sublist(ready.next);
+          if (await _deliver(ready.frame, onUpdate)) {
+            return;
+          }
+          continue;
+        }
+        final bool more = await Future.any(<Future<bool>>[
+          chunks.moveNext(),
+          cancelled,
+        ]);
+        if (cancelToken?.isCancelled ?? false) {
+          throw CursorNetworkFailure(DioExceptionType.cancel.name);
+        }
+        if (!more) {
+          if (buffer.isNotEmpty) {
+            throw const FormatException('Truncated frame');
+          }
+          return;
+        }
+        buffer = _append(buffer, chunks.current);
+      }
+    } finally {
+      unawaited(chunks.cancel());
+    }
+  }
+
+  /// Handles one frame; returns `true` once the stream has ended.
+  Future<bool> _deliver(
+    ConnectFrame frame,
+    FutureOr<void> Function(ConversationUpdate update) onUpdate,
+  ) async {
+    if (frame.end) {
+      final String? code = endErrorCode(frame.payload);
+      if (code != null) {
+        throw ApiFailure(
+          400,
+          _safeCode.hasMatch(code) ? code : 'request_failed',
+        );
+      }
+      await onUpdate(const ConversationUpdate(null, '', end: true));
+      return true;
+    }
+    if ((frame.flags & 0x01) != 0) {
+      throw const FormatException('Compressed frame');
+    }
+    await onUpdate(decodeConversationPayload(frame.payload));
+    return false;
   }
 
   Future<Map<String, dynamic>> _execute(
@@ -203,7 +356,7 @@ class CursorApi {
     allowConfiguredOrigin: allowConfiguredOrigin,
   );
 
-  ApiFailure _failure(Response<String> response, String body) {
+  ApiFailure _failure(Response<Object?> response, String body) {
     String code = 'request_failed';
     try {
       final Object? decoded = jsonDecode(body);
@@ -245,6 +398,36 @@ Map<String, dynamic> _jsonObjectOrFailure(int status, String text) {
     return decoded;
   }
   throw ApiFailure(status, 'invalid_body');
+}
+
+/// The first whole frame at the start of [buffer], or `null` if more bytes
+/// are needed. A bad length fails fast instead of waiting forever.
+({ConnectFrame frame, int next})? _completeFrame(Uint8List buffer) {
+  if (buffer.length < 5) {
+    return null;
+  }
+  final int length = ByteData.sublistView(buffer, 0, 5).getInt32(1);
+  if (length < 0 || length > maxFramePayload) {
+    throw const FormatException('Frame length');
+  }
+  if (buffer.length - 5 < length) {
+    return null;
+  }
+  return readFrame(buffer);
+}
+
+Uint8List _append(Uint8List head, Uint8List tail) {
+  return Uint8List(head.length + tail.length)
+    ..setAll(0, head)
+    ..setAll(head.length, tail);
+}
+
+Future<String> _readText(Stream<Uint8List> stream) async {
+  final List<int> bytes = <int>[];
+  await for (final Uint8List chunk in stream) {
+    bytes.addAll(chunk);
+  }
+  return utf8.decode(bytes, allowMalformed: true);
 }
 
 /// First `csrf-token` or `cursor-csrf-token` cookie valid for [url].
