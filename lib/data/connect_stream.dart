@@ -119,6 +119,29 @@ ConversationUpdate decodeConversationPayload(Uint8List payload) {
   );
 }
 
+/// Error code from an end-of-stream JSON trailer.
+///
+/// Returns `null` when the trailer is blank, malformed or has no
+/// `error.code`, like Kotlin's `endErrorCode`. Only the code is returned, so
+/// other trailer fields (which may echo session data) are never surfaced.
+String? endErrorCode(Uint8List payload) {
+  final String text = utf8.decode(payload, allowMalformed: true);
+  if (text.trim().isEmpty) {
+    return null;
+  }
+  try {
+    final Object? decoded = jsonDecode(text);
+    final Object? error = decoded is Map ? decoded['error'] : null;
+    final Object? code = error is Map ? error['code'] : null;
+    if (code is String || code is num || code is bool) {
+      return '$code';
+    }
+    return null;
+  } on FormatException {
+    return null;
+  }
+}
+
 final RegExp _hexId = RegExp(r'^[0-9a-fA-F]{32,}$');
 
 /// Bytes of the first [field] entry, which may be `null` for scalars.
