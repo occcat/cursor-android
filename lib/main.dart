@@ -1,3 +1,4 @@
+import 'package:cursor_android/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,16 +18,9 @@ void main() {
 
 /// Provides the app-wide [GoRouter].
 final routerProvider = Provider<GoRouter>((ref) {
-  return GoRouter(
-    routes: <RouteBase>[
-      GoRoute(
-        path: '/',
-        builder: (BuildContext context, GoRouterState state) {
-          return const HomePage();
-        },
-      ),
-    ],
-  );
+  final GoRouter router = createAppRouter();
+  ref.onDispose(router.dispose);
+  return router;
 });
 
 /// Builds the Material 3 theme for [brightness].
@@ -61,23 +55,6 @@ class CursorApp extends ConsumerWidget {
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),
       routerConfig: ref.watch(routerProvider),
-    );
-  }
-}
-
-/// Placeholder home page.
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Text(
-          'Cursor',
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-      ),
     );
   }
 }
