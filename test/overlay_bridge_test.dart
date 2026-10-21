@@ -79,6 +79,42 @@ void main() {
     );
   });
 
+  test('startOverlay and stopOverlay invoke their platform methods', () async {
+    reply((MethodCall call) => null);
+    await bridge.startOverlay();
+    await bridge.stopOverlay();
+
+    expect(
+      calls.map((MethodCall call) => call.method).toList(),
+      <String>['startOverlay', 'stopOverlay'],
+    );
+    expect(calls.every((MethodCall call) => call.arguments == null), isTrue);
+  });
+
+  test('startOverlay rethrows a missing permission', () async {
+    reply(
+      (MethodCall call) =>
+          throw PlatformException(code: 'permission', message: 'off'),
+    );
+
+    await expectLater(
+      bridge.startOverlay(),
+      throwsA(
+        isA<PlatformException>().having(
+          (PlatformException error) => error.code,
+          'code',
+          'permission',
+        ),
+      ),
+    );
+    expect(calls.single.method, 'startOverlay');
+  });
+
+  test('method names match MainActivity', () {
+    expect(OverlayBridge.startOverlayMethod, 'startOverlay');
+    expect(OverlayBridge.stopOverlayMethod, 'stopOverlay');
+  });
+
   test('an injected channel is used instead of the default', () async {
     const MethodChannel other = MethodChannel('test/overlay');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
