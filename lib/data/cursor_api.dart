@@ -268,6 +268,46 @@ class CursorApi {
     ];
   }
 
+  static const List<String> _artifactFields = <String>[
+    'path',
+    'absolutePath',
+    'name',
+  ];
+
+  /// Fetches the content of [artifact] from the agent [bcId].
+  ///
+  /// Ported from Kotlin 0.1.5 `CursorRepository.artifactBytes`. Posts the
+  /// trimmed [bcId] plus each of `path`, `absolutePath` and `name` that is a
+  /// non-blank string in [artifact], and returns the response as is; the
+  /// caller decodes any `content`. Nothing is cached. Goes through [request],
+  /// so an `invalid_csrf_token` failure mints a fresh token and retries once.
+  /// A blank [bcId], or an [artifact] without any of those fields, throws an
+  /// [ArgumentError] before any network call.
+  Future<Map<String, dynamic>> getArtifactBytes({
+    required String bcId,
+    required Map<String, dynamic> artifact,
+  }) async {
+    final String agent = bcId.trim();
+    if (agent.isEmpty) {
+      throw ArgumentError.value(bcId, 'bcId', 'must not be blank');
+    }
+    final Map<String, dynamic> body = <String, dynamic>{'bcId': agent};
+    for (final String field in _artifactFields) {
+      final Object? value = artifact[field];
+      if (value is String && value.trim().isNotEmpty) {
+        body[field] = value;
+      }
+    }
+    if (body.length == 1) {
+      throw ArgumentError('artifact needs a path, absolutePath or name');
+    }
+    return request(
+      'POST',
+      const <String>['api', 'background-composer', 'get-artifact-bytes'],
+      body: body,
+    );
+  }
+
   /// Sends one JSON request and returns the response object.
   ///
   /// An `invalid_csrf_token` failure on a non-GET request mints a fresh token
