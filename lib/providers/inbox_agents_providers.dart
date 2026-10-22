@@ -166,7 +166,7 @@ class InboxAgentsNotifier extends AsyncNotifier<InboxAgents> {
       loadingMore: true,
     );
     state = AsyncData<InboxAgents>(pending);
-    final InboxAgents next;
+    InboxAgents next;
     try {
       final Map<String, dynamic> root = await api.listBackgroundComposers(
         lastMessageActivityAtMsOffset: offset,
