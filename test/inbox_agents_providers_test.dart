@@ -43,6 +43,10 @@ const String pageTwo =
     '{"composers":[{"bcId":"bc-2","name":"Docs","status":"ERROR"},'
     '{"bcId":"bc-3","name":"Ship it","status":"RUNNING"}],'
     '"hasMore":false,"nextPageOffset":1600000000000}';
+
+/// A first page served on refresh: one new agent and no more pages.
+const String freshPage =
+    '{"composers":[{"bcId":"bc-9","name":"Fresh start","status":"RUNNING"}]}';
 const String leakyUnauthorized =
     '{"error":{"code":"unauthorized"},'
     '"echo":"Cookie: session=fake-cookie-value-123; '
@@ -155,6 +159,12 @@ Future<InboxAgents> loadTwoPages(ProviderContainer container) async {
   return container.read(inboxAgentsProvider).requireValue;
 }
 
+/// Refreshes the list in [container] and returns the reloaded state.
+Future<InboxAgents> refreshList(ProviderContainer container) {
+  container.read(inboxAgentsProvider.notifier).refresh();
+  return container.read(inboxAgentsProvider.future);
+}
+
 Future<void> pumpInbox(
   WidgetTester tester,
   Credentials credentials,
@@ -182,8 +192,19 @@ Future<void> tapLoadMore(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// Scrolls to and taps the Inbox Refresh button.
+Future<void> tapRefresh(WidgetTester tester) async {
+  await tester.ensureVisible(find.text('Refresh'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Refresh'));
+  await tester.pumpAndSettle();
+}
+
 FilledButton loadMoreButton(WidgetTester tester) =>
     tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Load more'));
+
+FilledButton refreshButton(WidgetTester tester) =>
+    tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Refresh'));
 
 List<String> ids(List<AgentSummary> agents) =>
     <String>[for (final AgentSummary agent in agents) agent.bcId];
@@ -511,6 +532,94 @@ void main() {
     });
   });
 
+  group('inbox agents refresh', () {
+    test('reloads the first page with no offset', () async {
+      server.replies.addAll(const <Reply>[
+        Reply(twoAgents),
+        Reply(pageTwo),
+        Reply(freshPage),
+      ]);
+      final ProviderContainer container = containerFor(
+        await credentialsWithCookie(),
+        server,
+      );
+      await loadTwoPages(container);
+      final InboxAgents result = await refreshList(container);
+      expect(ids(result.agents), <String>['bc-9']);
+      expect(result.agents.single.name, 'Fresh start');
+      expect(result.errorMessage, isNull);
+      expect(result.hasMore, isFalse);
+      expect(result.nextPageOffset, isNull);
+      expect(server.seen, hasLength(3));
+      final Seen request = server.seen[2];
+      expect(request.method, 'POST');
+      expect(request.uri.path, listPath);
+      expect(jsonDecode(request.body), firstPage);
+      expect(request.headers['cookie'], fakeCookie);
+      expect(request.headers.containsKey('authorization'), isFalse);
+    });
+
+    test('recovers after a failed first load', () async {
+      server.replies.addAll(const <Reply>[
+        Reply(leakyUnauthorized, status: 401),
+        Reply(twoAgents),
+      ]);
+      final ProviderContainer container = containerFor(
+        await credentialsWithCookie(),
+        server,
+      );
+      final InboxAgents failed = await container.read(
+        inboxAgentsProvider.future,
+      );
+      expect(failed.errorMessage, inboxReconnectError);
+      final InboxAgents result = await refreshList(container);
+      expect(ids(result.agents), <String>['bc-1', 'bc-2']);
+      expect(result.errorMessage, isNull);
+      expect(result.hasMore, isTrue);
+      expect(result.nextPageOffset, pageOffset);
+      expect(server.seen, hasLength(2));
+      expect(jsonDecode(server.seen[1].body), firstPage);
+    });
+
+    test('a failed refresh shows a safe error and leaks nothing', () async {
+      server.replies.add(const Reply(twoAgents));
+      final ProviderContainer container = containerFor(
+        await credentialsWithCookie(),
+        server,
+      );
+      await container.read(inboxAgentsProvider.future);
+      server.unreachable = true;
+      final InboxAgents result = await refreshList(container);
+      expect(result.agents, isEmpty);
+      expect(
+        result.errorMessage,
+        'Could not reach Cursor (connectionError). Check your connection.',
+      );
+      final AsyncValue<InboxAgents> state = container.read(
+        inboxAgentsProvider,
+      );
+      expect(state.hasError, isFalse);
+      for (final String leak in leaks) {
+        expect(result.errorMessage, isNot(contains(leak)), reason: leak);
+        expect(state.toString(), isNot(contains(leak)), reason: leak);
+      }
+      expect(server.seen, hasLength(2));
+    });
+
+    test('without a cookie refresh sends nothing', () async {
+      final ProviderContainer container = containerFor(
+        MemoryCredentials(),
+        server,
+      );
+      await container.read(inboxAgentsProvider.future);
+      final InboxAgents result = await refreshList(container);
+      expect(result.agents, isEmpty);
+      expect(result.errorMessage, isNull);
+      expect(result.hasMore, isFalse);
+      expect(server.seen, isEmpty);
+    });
+  });
+
   group('inboxAgentsErrorMessage', () {
     test('a missing cookie asks to reconnect', () {
       expect(
@@ -611,6 +720,51 @@ void main() {
       expect(find.text(inboxReconnectError), findsOneWidget);
       expect(find.byType(AgentListTile), findsNothing);
       expect(find.text('Load more'), findsNothing);
+      for (final String leak in leaks) {
+        expect(find.textContaining(leak), findsNothing, reason: leak);
+      }
+    });
+
+    testWidgets('Refresh replaces the loaded pages with the first page', (
+      WidgetTester tester,
+    ) async {
+      server.replies.addAll(const <Reply>[
+        Reply(twoAgents),
+        Reply(pageTwo),
+        Reply(freshPage),
+      ]);
+      await pumpInbox(tester, await credentialsWithCookie(), server);
+      expect(refreshButton(tester).onPressed, isNotNull);
+      await tapLoadMore(tester);
+      expect(find.byType(AgentListTile), findsNWidgets(3));
+      await tapRefresh(tester);
+      expect(tester.takeException(), isNull);
+      expect(find.byType(AgentListTile), findsOneWidget);
+      expect(find.text('Fresh start'), findsOneWidget);
+      expect(find.text('Fix login'), findsNothing);
+      expect(find.text('Ship it'), findsNothing);
+      expect(find.text('Load more'), findsNothing);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(refreshButton(tester).onPressed, isNotNull);
+      expect(server.seen, hasLength(3));
+      expect(jsonDecode(server.seen[2].body), firstPage);
+    });
+
+    testWidgets('Refresh after a failed load shows the agents', (
+      WidgetTester tester,
+    ) async {
+      server.replies.addAll(const <Reply>[
+        Reply(leakyUnauthorized, status: 401),
+        Reply(twoAgents),
+      ]);
+      await pumpInbox(tester, await credentialsWithCookie(), server);
+      expect(find.text(inboxReconnectError), findsOneWidget);
+      await tapRefresh(tester);
+      expect(tester.takeException(), isNull);
+      expect(find.text(inboxReconnectError), findsNothing);
+      expect(find.byType(AgentListTile), findsNWidgets(2));
+      expect(find.text('Fix login'), findsOneWidget);
+      expect(server.seen, hasLength(2));
       for (final String leak in leaks) {
         expect(find.textContaining(leak), findsNothing, reason: leak);
       }

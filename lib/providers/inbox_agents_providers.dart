@@ -2,8 +2,8 @@
 ///
 /// The first page of `background-composer/list` loads with no offset.
 /// [InboxAgentsNotifier.loadMore] fetches the next page with the last
-/// response's `nextPageOffset` and appends it. Refresh is left to a later
-/// round.
+/// response's `nextPageOffset` and appends it. [InboxAgentsNotifier.refresh]
+/// drops the loaded pages and loads the first page again.
 library;
 
 import 'package:cursor_android/data/api_failure.dart';
@@ -187,6 +187,20 @@ class InboxAgentsNotifier extends AsyncNotifier<InboxAgents> {
       return;
     }
     state = AsyncData<InboxAgents>(next);
+  }
+
+  /// Drops the loaded pages and loads the first page again, with no
+  /// offset, through [build].
+  ///
+  /// Does nothing while the list is loading. The loaded agents stay in the
+  /// state until the new first page arrives. A failed refresh resolves to a
+  /// safe [InboxAgents.errorMessage], like a failed first load, and a Load
+  /// more result that arrives after the refresh is dropped.
+  void refresh() {
+    if (state.isLoading) {
+      return;
+    }
+    ref.invalidateSelf();
   }
 }
 
