@@ -1,5 +1,7 @@
 import 'package:cursor_android/app_router.dart';
+import 'package:cursor_android/data/credentials.dart';
 import 'package:cursor_android/main.dart';
+import 'package:cursor_android/providers/session_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,7 +10,12 @@ import 'package:go_router/go_router.dart';
 Future<GoRouter> pumpRouter(WidgetTester tester) async {
   final GoRouter router = createAppRouter();
   addTearDown(router.dispose);
-  await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [credentialsProvider.overrideWithValue(MemoryCredentials())],
+      child: MaterialApp.router(routerConfig: router),
+    ),
+  );
   await tester.pumpAndSettle();
   return router;
 }
@@ -17,7 +24,12 @@ void main() {
   testWidgets('the app opens on the disconnected Inbox', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: CursorApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [credentialsProvider.overrideWithValue(MemoryCredentials())],
+        child: const CursorApp(),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Cursor'), findsOneWidget);
     expect(find.text('Connect your workspace'), findsOneWidget);
