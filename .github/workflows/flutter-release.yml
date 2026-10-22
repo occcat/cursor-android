@@ -1,0 +1,94 @@
+name: Publish Flutter release
+on:
+  push:
+    tags: ['v[0-9]*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag, for example v1.0.0'
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: flutter-release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+      - name: Validate release version and signing inputs
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import base64, os, pathlib, re
+          source = pathlib.Path('pubspec.yaml').read_text()
+          match = re.search(r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+)(?:\+[0-9]+)?\s*$', source, re.M)
+          if match is None:
+              raise SystemExit('pubspec.yaml needs a version: x.y.z+build line before releasing')
+          version = match.group(1)
+          if os.environ['RELEASE_TAG'] != 'v' + version:
+              raise SystemExit('Release tag must match the separately committed pubspec.yaml version')
+          required = ['ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD',
+                      'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD']
+          if any(not os.environ.get(name) for name in required):
+              raise SystemExit('All four Android release signing secrets are required')
+          target = pathlib.Path(os.environ['RUNNER_TEMP']) / 'cursor-release.p12'
+          target.write_bytes(base64.b64decode(os.environ['ANDROID_KEYSTORE_BASE64'], validate=True))
+          target.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f'ANDROID_KEYSTORE_PATH={target}\nRELEASE_VERSION={version}\n')
+          PY
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Build signed release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: flutter build apk --release
+      - name: Reject a debug-signed APK
+        run: |
+          certs="$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs build/app/outputs/flutter-apk/app-release.apk)"
+          echo "$certs"
+          if grep -q 'CN=Android Debug' <<< "$certs"; then
+            echo 'app-release.apk is signed with the debug key' >&2
+            exit 1
+          fi
+      - name: Publish signed APK and checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk "cursor-android-${RELEASE_VERSION}.apk"
+          sha256sum "cursor-android-${RELEASE_VERSION}.apk" > "cursor-android-${RELEASE_VERSION}.apk.sha256"
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "cursor-android-${RELEASE_VERSION}.apk" "cursor-android-${RELEASE_VERSION}.apk.sha256" --clobber
+          else
+            gh release create "$RELEASE_TAG" "cursor-android-${RELEASE_VERSION}.apk" "cursor-android-${RELEASE_VERSION}.apk.sha256" --verify-tag --title "Cursor Android ${RELEASE_VERSION}" --generate-notes
+          fi
+      - name: Update Cloudflare Pages after assets are published
+        env:
+          CLOUDFLARE_PAGES_DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_HOOK }}
+        run: node website/scripts/deploy-hook.mjs
+      - name: Remove runner signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/cursor-release.p12"
