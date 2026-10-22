@@ -1,5 +1,6 @@
 name: cursor_android
 description: Cursor Android client (Flutter rewrite, 1.x).
+version: 1.0.0+1
 publish_to: none
 
 environment:
