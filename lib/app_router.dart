@@ -2,14 +2,18 @@
 /// [webConnectedProvider], a local cookie read. With a stored cookie the
 /// Inbox also shows agents from [inboxAgentsProvider]: the first page, and
 /// later pages appended by Load more while the list reports more. Refresh
-/// is not wired yet. Every other input is still stub data and no other
-/// route calls the network. The one platform call is the Settings
-/// floating capsule button, which opens the overlay permission screen or,
-/// once drawing over other apps is allowed, starts the overlay service.
-/// Later rounds replace the stubs with live state.
+/// is not wired yet. With a stored cookie New agent starts the agent through
+/// [watchCreateAgentSubmit], then replaces itself with the agent's route, or
+/// shows a safe error in a snack bar and keeps the form. Every other input
+/// is still stub data and no other route calls the network. The one
+/// platform call is the Settings floating capsule button, which opens the
+/// overlay permission screen or, once drawing over other apps is allowed,
+/// starts the overlay service. Later rounds replace the stubs with live
+/// state.
 library;
 
 import 'package:cursor_android/domain/preferences.dart';
+import 'package:cursor_android/providers/create_agent_providers.dart';
 import 'package:cursor_android/providers/inbox_agents_providers.dart';
 import 'package:cursor_android/providers/session_providers.dart';
 import 'package:cursor_android/system/overlay_bridge.dart';
@@ -84,8 +88,29 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
       ),
       GoRoute(
         path: '/create',
-        builder: (BuildContext context, GoRouterState state) =>
-            const _Frame(title: 'New agent', child: CreateAgentPage()),
+        builder: (BuildContext context, GoRouterState state) => _Frame(
+          title: 'New agent',
+          child: Consumer(
+            builder: (BuildContext context, WidgetRef ref, Widget? _) =>
+                CreateAgentPage(
+                  onSubmit: watchCreateAgentSubmit(
+                    ref,
+                    onStarted: (String bcId) {
+                      if (context.mounted) {
+                        context.pushReplacement('/agent/$bcId');
+                      }
+                    },
+                    onFailed: (String message) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(message)));
+                      }
+                    },
+                  ),
+                ),
+          ),
+        ),
       ),
       GoRoute(
         path: '/agent/:bcId',
