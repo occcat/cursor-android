@@ -1,16 +1,19 @@
 /// App routes. Inbox and Settings read `webConnected` from
-/// [webConnectedProvider], a local cookie read. With a stored cookie the
-/// Inbox also shows agents from [inboxAgentsProvider]: the first page, and
-/// later pages appended by Load more while the list reports more. Refresh
-/// is not wired yet. Every other input is still stub data and no other
-/// route calls the network. The one platform call is the Settings
-/// floating capsule button, which opens the overlay permission screen or,
-/// once drawing over other apps is allowed, starts the overlay service.
-/// Later rounds replace the stubs with live state.
+/// [webConnectedProvider], a local cookie read, and their preferences from
+/// [preferencesProvider], which Settings changes and stores on the device.
+/// With a stored cookie the Inbox also shows agents from
+/// [inboxAgentsProvider]: the first page, and later pages appended by Load
+/// more while the list reports more. Refresh is not wired yet. Every other
+/// input is still stub data and no other route calls the network. The one
+/// platform call is the Settings floating capsule button, which opens the
+/// overlay permission screen or, once drawing over other apps is allowed,
+/// starts the overlay service. Later rounds replace the stubs with live
+/// state.
 library;
 
 import 'package:cursor_android/domain/preferences.dart';
 import 'package:cursor_android/providers/inbox_agents_providers.dart';
+import 'package:cursor_android/providers/preferences_providers.dart';
 import 'package:cursor_android/providers/session_providers.dart';
 import 'package:cursor_android/system/overlay_bridge.dart';
 import 'package:cursor_android/ui/agent_detail_page.dart';
@@ -44,7 +47,7 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
               final InboxAgentsView inbox = watchInboxAgents(ref);
               return InboxPage(
                 webConnected: watchWebConnected(ref),
-                preferences: const Preferences(),
+                preferences: watchPreferences(ref).preferences,
                 loading: inbox.loading,
                 errorMessage: inbox.errorMessage,
                 agents: inbox.agents,
@@ -64,21 +67,28 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
         builder: (BuildContext context, GoRouterState state) => _Frame(
           title: 'Settings',
           child: Consumer(
-            builder: (BuildContext context, WidgetRef ref, Widget? _) =>
-                SettingsPage(
-                  preferences: const Preferences(),
-                  webConnected: watchWebConnected(ref),
-                  onOpenEnvironment: (String publicId) =>
-                      context.push('/environment/$publicId'),
-                  onOpenFloatingCapsuleHelp: () async {
-                    const OverlayBridge bridge = OverlayBridge();
-                    if (!await bridge.canDrawOverlays()) {
-                      await bridge.openOverlaySettings();
-                    } else {
-                      await bridge.startOverlay();
-                    }
-                  },
-                ),
+            builder: (BuildContext context, WidgetRef ref, Widget? _) {
+              final ({Preferences preferences, bool loaded}) stored =
+                  watchPreferences(ref);
+              return SettingsPage(
+                preferences: stored.preferences,
+                webConnected: watchWebConnected(ref),
+                onPreferencesChanged: stored.loaded
+                    ? (Preferences next) =>
+                          ref.read(preferencesProvider.notifier).save(next)
+                    : null,
+                onOpenEnvironment: (String publicId) =>
+                    context.push('/environment/$publicId'),
+                onOpenFloatingCapsuleHelp: () async {
+                  const OverlayBridge bridge = OverlayBridge();
+                  if (!await bridge.canDrawOverlays()) {
+                    await bridge.openOverlaySettings();
+                  } else {
+                    await bridge.startOverlay();
+                  }
+                },
+              );
+            },
           ),
         ),
       ),
