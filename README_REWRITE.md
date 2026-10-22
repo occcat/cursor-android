@@ -63,3 +63,29 @@ runs on pull requests and pushes to `main` that change `lib/`, `test/`, `pubspec
 
 The Flutter tree cannot produce an installable app yet, because `android/` is missing. To build
 or install the app today, follow the Kotlin instructions in [README.md](README.md).
+
+## Releases
+
+Flutter releases use `.github/workflows/flutter-release.yml` (**Publish Flutter release** in
+Actions). It runs only through manual `workflow_dispatch`, with one required input, `tag`: an
+existing version tag such as `v1.0.0`. Pushing a tag does not start it. The legacy Kotlin
+workflow, `.github/workflows/android-release.yml` (Publish Android release), is also manual
+`workflow_dispatch` only and no longer runs on tags.
+
+To cut a Flutter release:
+
+1. Set `version:` in `pubspec.yaml` to `x.y.z+build` and commit it to `main` on its own.
+2. Create and push the matching tag: `git tag vx.y.z && git push origin vx.y.z`.
+3. Open Actions → Publish Flutter release → Run workflow, and enter `vx.y.z` as `tag`.
+
+The workflow checks out that tag and fails unless it equals `v` plus the `x.y.z` from
+`pubspec.yaml`. It then runs `flutter build apk --release`, rejects a debug-signed APK, and
+uploads `cursor-android-x.y.z.apk` with its `.sha256` file to the GitHub Release for the tag.
+
+These repository secrets are required (names only; never commit their values):
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
+`ANDROID_KEY_PASSWORD`.
+
+The current `1.0.0+1` gives versionCode 1, lower than the shipped Kotlin 0.1.5 (versionCode 6).
+Android will not install a lower versionCode over an app with the same applicationId, so raise
+`+build` above 6 (for example `1.0.0+7`) before an upgrade release.
