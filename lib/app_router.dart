@@ -1,11 +1,13 @@
-/// App routes. Every page gets stub, disconnected data for now: nothing here
-/// calls the network or reads storage. The one platform call is the Settings
-/// floating capsule button, which opens the overlay permission screen or, once
-/// drawing over other apps is allowed, starts the overlay service. Later rounds
-/// replace the stubs with live state.
+/// App routes. Inbox and Settings read `webConnected` from
+/// [webConnectedProvider], a local cookie read; every other input is still
+/// stub, disconnected data and nothing here calls the network. The one
+/// platform call is the Settings floating capsule button, which opens the
+/// overlay permission screen or, once drawing over other apps is allowed,
+/// starts the overlay service. Later rounds replace the stubs with live state.
 library;
 
 import 'package:cursor_android/domain/preferences.dart';
+import 'package:cursor_android/providers/session_providers.dart';
 import 'package:cursor_android/system/overlay_bridge.dart';
 import 'package:cursor_android/ui/agent_detail_page.dart';
 import 'package:cursor_android/ui/create_agent_page.dart';
@@ -13,9 +15,12 @@ import 'package:cursor_android/ui/environment_page.dart';
 import 'package:cursor_android/ui/inbox_page.dart';
 import 'package:cursor_android/ui/settings_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// The router for the app, starting at [initialLocation].
+///
+/// Must be shown under a `ProviderScope`.
 GoRouter createAppRouter({String initialLocation = '/'}) {
   return GoRouter(
     initialLocation: initialLocation,
@@ -30,11 +35,14 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
               child: const Text('Settings'),
             ),
           ],
-          child: InboxPage(
-            webConnected: false,
-            preferences: const Preferences(),
-            onCreate: () => context.push('/create'),
-            onOpenAgent: (String bcId) => context.push('/agent/$bcId'),
+          child: Consumer(
+            builder: (BuildContext context, WidgetRef ref, Widget? _) =>
+                InboxPage(
+                  webConnected: watchWebConnected(ref),
+                  preferences: const Preferences(),
+                  onCreate: () => context.push('/create'),
+                  onOpenAgent: (String bcId) => context.push('/agent/$bcId'),
+                ),
           ),
         ),
       ),
@@ -42,18 +50,22 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
         path: '/settings',
         builder: (BuildContext context, GoRouterState state) => _Frame(
           title: 'Settings',
-          child: SettingsPage(
-            preferences: const Preferences(),
-            onOpenEnvironment: (String publicId) =>
-                context.push('/environment/$publicId'),
-            onOpenFloatingCapsuleHelp: () async {
-              const OverlayBridge bridge = OverlayBridge();
-              if (!await bridge.canDrawOverlays()) {
-                await bridge.openOverlaySettings();
-              } else {
-                await bridge.startOverlay();
-              }
-            },
+          child: Consumer(
+            builder: (BuildContext context, WidgetRef ref, Widget? _) =>
+                SettingsPage(
+                  preferences: const Preferences(),
+                  webConnected: watchWebConnected(ref),
+                  onOpenEnvironment: (String publicId) =>
+                      context.push('/environment/$publicId'),
+                  onOpenFloatingCapsuleHelp: () async {
+                    const OverlayBridge bridge = OverlayBridge();
+                    if (!await bridge.canDrawOverlays()) {
+                      await bridge.openOverlaySettings();
+                    } else {
+                      await bridge.startOverlay();
+                    }
+                  },
+                ),
           ),
         ),
       ),
