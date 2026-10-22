@@ -1,12 +1,15 @@
 /// App routes. Inbox and Settings read `webConnected` from
-/// [webConnectedProvider], a local cookie read; every other input is still
-/// stub, disconnected data and nothing here calls the network. The one
-/// platform call is the Settings floating capsule button, which opens the
-/// overlay permission screen or, once drawing over other apps is allowed,
-/// starts the overlay service. Later rounds replace the stubs with live state.
+/// [webConnectedProvider], a local cookie read. With a stored cookie the
+/// Inbox also shows the first page of agents from [inboxAgentsProvider];
+/// paging is not wired yet. Every other input is still stub data and no
+/// other route calls the network. The one platform call is the Settings
+/// floating capsule button, which opens the overlay permission screen or,
+/// once drawing over other apps is allowed, starts the overlay service.
+/// Later rounds replace the stubs with live state.
 library;
 
 import 'package:cursor_android/domain/preferences.dart';
+import 'package:cursor_android/providers/inbox_agents_providers.dart';
 import 'package:cursor_android/providers/session_providers.dart';
 import 'package:cursor_android/system/overlay_bridge.dart';
 import 'package:cursor_android/ui/agent_detail_page.dart';
@@ -36,13 +39,18 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
             ),
           ],
           child: Consumer(
-            builder: (BuildContext context, WidgetRef ref, Widget? _) =>
-                InboxPage(
-                  webConnected: watchWebConnected(ref),
-                  preferences: const Preferences(),
-                  onCreate: () => context.push('/create'),
-                  onOpenAgent: (String bcId) => context.push('/agent/$bcId'),
-                ),
+            builder: (BuildContext context, WidgetRef ref, Widget? _) {
+              final InboxAgentsView inbox = watchInboxAgents(ref);
+              return InboxPage(
+                webConnected: watchWebConnected(ref),
+                preferences: const Preferences(),
+                loading: inbox.loading,
+                errorMessage: inbox.errorMessage,
+                agents: inbox.agents,
+                onCreate: () => context.push('/create'),
+                onOpenAgent: (String bcId) => context.push('/agent/$bcId'),
+              );
+            },
           ),
         ),
       ),

@@ -116,8 +116,7 @@ class CursorApi {
         'include_status': true,
         'include_archived': true,
         'include_pinned_state': true,
-        if (lastMessageActivityAtMsOffset != null)
-          'last_message_activity_at_ms_offset': lastMessageActivityAtMsOffset,
+        'last_message_activity_at_ms_offset': ?lastMessageActivityAtMsOffset,
       },
     );
   }

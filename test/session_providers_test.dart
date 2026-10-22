@@ -1,6 +1,7 @@
 import 'package:cursor_android/app_router.dart';
 import 'package:cursor_android/data/cookie_session_store.dart';
 import 'package:cursor_android/data/credentials.dart';
+import 'package:cursor_android/providers/inbox_agents_providers.dart';
 import 'package:cursor_android/providers/session_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,6 +34,8 @@ ProviderContainer containerFor(Credentials credentials) {
   return container;
 }
 
+/// Pumps the router with [credentials]; the agent list is overridden to an
+/// empty first page so these tests never touch the network.
 Future<void> pumpApp(
   WidgetTester tester,
   Credentials credentials, {
@@ -42,7 +45,12 @@ Future<void> pumpApp(
   addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [credentialsProvider.overrideWithValue(credentials)],
+      overrides: [
+        credentialsProvider.overrideWithValue(credentials),
+        inboxAgentsProvider.overrideWith(
+          (Ref ref) async => const InboxAgents(),
+        ),
+      ],
       child: MaterialApp.router(routerConfig: router),
     ),
   );
