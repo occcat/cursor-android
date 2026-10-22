@@ -21,20 +21,34 @@ import 'package:go_router/go_router.dart';
 const String fakeCookie = 'session=fake-cookie-value-123; csrf-token=old';
 final Uri mockBase = Uri.parse('http://127.0.0.1:8080/');
 const String listPath = '/api/background-composer/list';
+const String offsetKey = 'last_message_activity_at_ms_offset';
+const int pageOffset = 1699999999999;
 const Map<String, dynamic> firstPage = <String, dynamic>{
   'n': 50,
   'include_status': true,
   'include_archived': true,
   'include_pinned_state': true,
 };
+const Map<String, dynamic> secondPage = <String, dynamic>{
+  ...firstPage,
+  offsetKey: pageOffset,
+};
 const String twoAgents =
     '{"composers":[{"bcId":"bc-1","name":"Fix login","status":"FINISHED"},'
     '{"bcId":"bc-2","name":"Docs","status":"ERROR"}],'
     '"hasMore":true,"nextPageOffset":1699999999999}';
+
+/// The last page; it repeats `bc-2` from [twoAgents].
+const String pageTwo =
+    '{"composers":[{"bcId":"bc-2","name":"Docs","status":"ERROR"},'
+    '{"bcId":"bc-3","name":"Ship it","status":"RUNNING"}],'
+    '"hasMore":false,"nextPageOffset":1600000000000}';
 const String leakyUnauthorized =
     '{"error":{"code":"unauthorized"},'
     '"echo":"Cookie: session=fake-cookie-value-123; '
     'Authorization: Bearer secret-value"}';
+const String leakyServerError =
+    '{"error":{"code":"Authorization: Bearer secret-value"}}';
 const List<String> leaks = <String>[
   'Cookie',
   'Authorization',
@@ -133,6 +147,14 @@ ProviderContainer containerFor(Credentials credentials, FakeServer server) {
   return container;
 }
 
+/// Loads the first page in [container], then the next one, and returns the
+/// resulting state.
+Future<InboxAgents> loadTwoPages(ProviderContainer container) async {
+  await container.read(inboxAgentsProvider.future);
+  await container.read(inboxAgentsProvider.notifier).loadMore();
+  return container.read(inboxAgentsProvider).requireValue;
+}
+
 Future<void> pumpInbox(
   WidgetTester tester,
   Credentials credentials,
@@ -151,6 +173,17 @@ Future<void> pumpInbox(
   );
   await tester.pumpAndSettle();
 }
+
+/// Scrolls to and taps the Inbox Load more button.
+Future<void> tapLoadMore(WidgetTester tester) async {
+  await tester.ensureVisible(find.text('Load more'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Load more'));
+  await tester.pumpAndSettle();
+}
+
+FilledButton loadMoreButton(WidgetTester tester) =>
+    tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Load more'));
 
 List<String> ids(List<AgentSummary> agents) =>
     <String>[for (final AgentSummary agent in agents) agent.bcId];
@@ -209,6 +242,7 @@ void main() {
       );
       expect(result.agents, isEmpty);
       expect(result.errorMessage, isNull);
+      expect(result.hasMore, isFalse);
       expect(server.seen, isEmpty);
     });
 
@@ -223,6 +257,7 @@ void main() {
       );
       expect(result.agents, isEmpty);
       expect(result.errorMessage, inboxReconnectError);
+      expect(result.hasMore, isFalse);
       final AsyncValue<InboxAgents> state = container.read(
         inboxAgentsProvider,
       );
@@ -234,12 +269,7 @@ void main() {
     });
 
     test('other API failures show only the status and safe code', () async {
-      server.replies.add(
-        const Reply(
-          '{"error":{"code":"Authorization: Bearer secret-value"}}',
-          status: 500,
-        ),
-      );
+      server.replies.add(const Reply(leakyServerError, status: 500));
       final ProviderContainer container = containerFor(
         await credentialsWithCookie(),
         server,
@@ -288,6 +318,199 @@ void main() {
     });
   });
 
+  group('inbox agents paging', () {
+    test('the first page keeps hasMore and nextPageOffset', () async {
+      server.replies.add(const Reply(twoAgents));
+      final ProviderContainer container = containerFor(
+        await credentialsWithCookie(),
+        server,
+      );
+      final InboxAgents result = await container.read(
+        inboxAgentsProvider.future,
+      );
+      expect(result.hasMore, isTrue);
+      expect(result.nextPageOffset, pageOffset);
+      expect(result.loadingMore, isFalse);
+      expect(result.canLoadMore, isTrue);
+    });
+
+    test('load more posts the offset and appends without repeats', () async {
+      server.replies.addAll(const <Reply>[Reply(twoAgents), Reply(pageTwo)]);
+      final ProviderContainer container = containerFor(
+        await credentialsWithCookie(),
+        server,
+      );
+      final InboxAgents result = await loadTwoPages(container);
+      expect(ids(result.agents), <String>['bc-1', 'bc-2', 'bc-3']);
+      expect(result.agents.last.name, 'Ship it');
+      expect(result.errorMessage, isNull);
+      expect(result.hasMore, isFalse);
+      expect(result.nextPageOffset, isNull);
+      expect(result.loadingMore, isFalse);
+      expect(server.seen, hasLength(2));
+      final Seen request = server.seen[1];
+      expect(request.method, 'POST');
+      expect(request.uri.path, listPath);
+      expect(jsonDecode(request.body), secondPage);
+      expect(request.headers['cookie'], fakeCookie);
+      expect(request.headers.containsKey('authorization'), isFalse);
+    });
+
+    test('a string offset passes through unchanged', () async {
+      server.replies.addAll(const <Reply>[
+        Reply(
+          '{"composers":[{"bcId":"bc-1"}],'
+          '"hasMore":true,"nextPageOffset":"1699999999999"}',
+        ),
+        Reply('{"composers":[{"bcId":"bc-2"}]}'),
+      ]);
+      final ProviderContainer container = containerFor(
+        await credentialsWithCookie(),
+        server,
+      );
+      final InboxAgents result = await loadTwoPages(container);
+      expect(ids(result.agents), <String>['bc-1', 'bc-2']);
+      expect(result.hasMore, isFalse);
+      expect(jsonDecode(server.seen[1].body), <String, dynamic>{
+        ...firstPage,
+        offsetKey: '1699999999999',
+      });
+    });
+
+    test('the last page sends no more requests', () async {
+      server.replies.add(const Reply(pageTwo));
+      final ProviderContainer container = containerFor(
+        await credentialsWithCookie(),
+        server,
+      );
+      final InboxAgents result = await loadTwoPages(container);
+      expect(ids(result.agents), <String>['bc-2', 'bc-3']);
+      expect(result.hasMore, isFalse);
+      expect(result.nextPageOffset, isNull);
+      expect(server.seen, hasLength(1));
+    });
+
+    test('hasMore without an offset sends no more requests', () async {
+      server.replies.add(
+        const Reply('{"composers":[{"bcId":"bc-1"}],"hasMore":true}'),
+      );
+      final ProviderContainer container = containerFor(
+        await credentialsWithCookie(),
+        server,
+      );
+      final InboxAgents result = await loadTwoPages(container);
+      expect(ids(result.agents), <String>['bc-1']);
+      expect(result.hasMore, isFalse);
+      expect(result.canLoadMore, isFalse);
+      expect(server.seen, hasLength(1));
+    });
+
+    test('overlapping load more calls fetch one page', () async {
+      server.replies.addAll(const <Reply>[Reply(twoAgents), Reply(pageTwo)]);
+      final ProviderContainer container = containerFor(
+        await credentialsWithCookie(),
+        server,
+      );
+      await container.read(inboxAgentsProvider.future);
+      final InboxAgentsNotifier notifier = container.read(
+        inboxAgentsProvider.notifier,
+      );
+      await Future.wait(<Future<void>>[
+        notifier.loadMore(),
+        notifier.loadMore(),
+      ]);
+      final InboxAgents result = container.read(inboxAgentsProvider).requireValue;
+      expect(ids(result.agents), <String>['bc-1', 'bc-2', 'bc-3']);
+      expect(server.seen, hasLength(2));
+    });
+
+    test('without a cookie load more sends nothing', () async {
+      final ProviderContainer container = containerFor(
+        MemoryCredentials(),
+        server,
+      );
+      final InboxAgents result = await loadTwoPages(container);
+      expect(result.agents, isEmpty);
+      expect(result.errorMessage, isNull);
+      expect(result.hasMore, isFalse);
+      expect(server.seen, isEmpty);
+    });
+
+    test('a failed next page keeps the agents and can be retried', () async {
+      server.replies.addAll(const <Reply>[
+        Reply(twoAgents),
+        Reply(leakyUnauthorized, status: 401),
+      ]);
+      final ProviderContainer container = containerFor(
+        await credentialsWithCookie(),
+        server,
+      );
+      final InboxAgents failed = await loadTwoPages(container);
+      expect(ids(failed.agents), <String>['bc-1', 'bc-2']);
+      expect(failed.errorMessage, inboxReconnectError);
+      expect(failed.hasMore, isTrue);
+      expect(failed.nextPageOffset, pageOffset);
+      expect(failed.canLoadMore, isTrue);
+      final AsyncValue<InboxAgents> state = container.read(
+        inboxAgentsProvider,
+      );
+      expect(state.hasError, isFalse);
+      for (final String leak in leaks) {
+        expect(failed.errorMessage, isNot(contains(leak)), reason: leak);
+        expect(state.toString(), isNot(contains(leak)), reason: leak);
+      }
+
+      server.replies.add(const Reply(pageTwo));
+      await container.read(inboxAgentsProvider.notifier).loadMore();
+      final InboxAgents retried = container
+          .read(inboxAgentsProvider)
+          .requireValue;
+      expect(ids(retried.agents), <String>['bc-1', 'bc-2', 'bc-3']);
+      expect(retried.errorMessage, isNull);
+      expect(retried.hasMore, isFalse);
+      expect(server.seen, hasLength(3));
+      expect(jsonDecode(server.seen[2].body), secondPage);
+    });
+
+    test('a network failure on the next page shows only the kind', () async {
+      server.replies.add(const Reply(twoAgents));
+      final ProviderContainer container = containerFor(
+        await credentialsWithCookie(),
+        server,
+      );
+      await container.read(inboxAgentsProvider.future);
+      server.unreachable = true;
+      await container.read(inboxAgentsProvider.notifier).loadMore();
+      final InboxAgents result = container.read(inboxAgentsProvider).requireValue;
+      expect(ids(result.agents), <String>['bc-1', 'bc-2']);
+      expect(
+        result.errorMessage,
+        'Could not reach Cursor (connectionError). Check your connection.',
+      );
+      for (final String leak in leaks) {
+        expect(result.errorMessage, isNot(contains(leak)), reason: leak);
+        expect(result.toString(), isNot(contains(leak)), reason: leak);
+      }
+    });
+
+    test('mergeInboxAgents skips repeated non-blank ids', () {
+      const List<AgentSummary> before = <AgentSummary>[
+        AgentSummary(bcId: 'bc-1'),
+      ];
+      const List<AgentSummary> page = <AgentSummary>[
+        AgentSummary(bcId: 'bc-1', name: 'again'),
+        AgentSummary(name: 'no id'),
+        AgentSummary(bcId: ' ', name: 'blank id'),
+        AgentSummary(bcId: 'bc-2'),
+        AgentSummary(bcId: 'bc-2', name: 'again'),
+      ];
+      final List<AgentSummary> merged = mergeInboxAgents(before, page);
+      expect(ids(merged), <String>['bc-1', '', ' ', 'bc-2']);
+      expect(merged.first.name, isEmpty);
+      expect(merged.last.name, isEmpty);
+    });
+  });
+
   group('inboxAgentsErrorMessage', () {
     test('a missing cookie asks to reconnect', () {
       expect(
@@ -322,10 +545,51 @@ void main() {
       expect(find.text('Fix login'), findsOneWidget);
       expect(find.text('Docs'), findsOneWidget);
       expect(find.text('No agents here yet. Start with a task.'), findsNothing);
-      expect(find.text('Load more'), findsNothing);
+      expect(find.text('Load more'), findsOneWidget);
+      expect(loadMoreButton(tester).onPressed, isNotNull);
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(server.seen, hasLength(1));
       expect(find.textContaining('fake-cookie-value-123'), findsNothing);
+    });
+
+    testWidgets('Load more appends the next page', (
+      WidgetTester tester,
+    ) async {
+      server.replies.addAll(const <Reply>[Reply(twoAgents), Reply(pageTwo)]);
+      await pumpInbox(tester, await credentialsWithCookie(), server);
+      await tapLoadMore(tester);
+      expect(tester.takeException(), isNull);
+      expect(find.byType(AgentListTile), findsNWidgets(3));
+      expect(find.text('Fix login'), findsOneWidget);
+      expect(find.text('Docs'), findsOneWidget);
+      expect(find.text('Ship it'), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(server.seen, hasLength(2));
+      expect(jsonDecode(server.seen[1].body), secondPage);
+    });
+
+    testWidgets('a failed next page keeps the tiles and a safe error', (
+      WidgetTester tester,
+    ) async {
+      server.replies.addAll(const <Reply>[
+        Reply(twoAgents),
+        Reply(leakyServerError, status: 500),
+      ]);
+      await pumpInbox(tester, await credentialsWithCookie(), server);
+      await tapLoadMore(tester);
+      expect(tester.takeException(), isNull);
+      expect(find.byType(AgentListTile), findsNWidgets(2));
+      expect(
+        find.text('Could not load agents (HTTP 500 · request_failed).'),
+        findsOneWidget,
+      );
+      expect(find.text('Load more'), findsOneWidget);
+      expect(loadMoreButton(tester).onPressed, isNotNull);
+      expect(server.seen, hasLength(2));
+      for (final String leak in leaks) {
+        expect(find.textContaining(leak), findsNothing, reason: leak);
+      }
     });
 
     testWidgets('stays on the connect card without a cookie', (
@@ -334,6 +598,7 @@ void main() {
       await pumpInbox(tester, MemoryCredentials(), server);
       expect(find.text('Connect your workspace'), findsOneWidget);
       expect(find.byType(AgentListTile), findsNothing);
+      expect(find.text('Load more'), findsNothing);
       expect(server.seen, isEmpty);
     });
 
@@ -345,6 +610,7 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text(inboxReconnectError), findsOneWidget);
       expect(find.byType(AgentListTile), findsNothing);
+      expect(find.text('Load more'), findsNothing);
       for (final String leak in leaks) {
         expect(find.textContaining(leak), findsNothing, reason: leak);
       }

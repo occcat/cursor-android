@@ -20,6 +20,12 @@ class FailingCredentials implements Credentials {
   Future<void> write(String name, String? value) async {}
 }
 
+/// An agent list that is always an empty first page with no more pages.
+class EmptyInboxAgents extends InboxAgentsNotifier {
+  @override
+  Future<InboxAgents> build() async => const InboxAgents();
+}
+
 Future<MemoryCredentials> credentialsWithCookie() async {
   final MemoryCredentials credentials = MemoryCredentials();
   await credentials.write(kCookieName, fakeCookie);
@@ -47,9 +53,7 @@ Future<void> pumpApp(
     ProviderScope(
       overrides: [
         credentialsProvider.overrideWithValue(credentials),
-        inboxAgentsProvider.overrideWith(
-          (Ref ref) async => const InboxAgents(),
-        ),
+        inboxAgentsProvider.overrideWith(EmptyInboxAgents.new),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
