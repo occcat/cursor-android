@@ -95,6 +95,33 @@ class CursorApi {
     ], body: patch);
   }
 
+  /// Lists one page of background agents.
+  ///
+  /// Ported from Kotlin 0.1.5 `CursorRepository.refreshAgents`. Posts `n: 50`
+  /// with `include_status`, `include_archived` and `include_pinned_state` set
+  /// to true. A non-null [lastMessageActivityAtMsOffset], normally the
+  /// previous page's `nextPageOffset` JSON value, is sent unchanged as
+  /// `last_message_activity_at_ms_offset` to fetch the next page. Returns the
+  /// response object as is; read its agents with `agentsFromComposers`.
+  /// Nothing is cached and pages are not merged. Goes through [request], so
+  /// an `invalid_csrf_token` failure mints a fresh token and retries once.
+  Future<Map<String, dynamic>> listBackgroundComposers({
+    Object? lastMessageActivityAtMsOffset,
+  }) {
+    return request(
+      'POST',
+      const <String>['api', 'background-composer', 'list'],
+      body: <String, dynamic>{
+        'n': 50,
+        'include_status': true,
+        'include_archived': true,
+        'include_pinned_state': true,
+        if (lastMessageActivityAtMsOffset != null)
+          'last_message_activity_at_ms_offset': lastMessageActivityAtMsOffset,
+      },
+    );
+  }
+
   /// Archives the agent [bcId], or restores it when [unarchive] is true.
   ///
   /// Ported from Kotlin 0.1.5 `CursorRepository.action` (`archive` and
