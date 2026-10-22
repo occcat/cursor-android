@@ -15,6 +15,11 @@ Cursor Cloud Agents 的原生 Android 伴侣，让两个用量池一目了然。
 
 </div>
 
+> [!NOTE]
+> **Flutter 重写进行中。** 应用正在以 Flutter 重写，目标版本为 1.0.0；
+> 详情见 [README_REWRITE.md](README_REWRITE.md)。`app/` 中的 Kotlin 0.1.5
+> 仍是当前实际发布的版本，下方的安装与构建说明继续针对它。
+
 ![胶囊、用量详情与通知设计](docs/assets/cursor-android-ui.svg)
 
 *示意图使用虚构数据。本项目是独立社区项目，不是 Cursor 官方应用，也不代表官方关联。*
