@@ -9,8 +9,9 @@ The Kotlin 0.1.5 app is still in `app/` and is the release that ships today. See
 [README.md](README.md) for its features and its build and install instructions. Archiving the
 Kotlin tree is deferred until the Flutter app can replace it.
 
-The Flutter `android/` platform folder does not exist yet. CI will generate it with
-`flutter create` in a later round.
+The Flutter `android/` platform folder exists, with applicationId and namespace
+`app.cursor.android` and minSdk 26. The Kotlin `app/` tree remains the shipped 0.1.5 install line
+until the Flutter app replaces it.
 
 ## What is in the Flutter tree
 
@@ -36,16 +37,20 @@ Features are ported from Kotlin 0.1.5 in small steps, each with unit or widget t
   map with stable string keys, documented at the top of `lib/widget/widget_payload.dart`, for
   home-screen widgets to read. Nothing writes this map to the platform yet.
 
-`lib/main.dart` still shows a placeholder home page. The pages above are not connected to routes
-or live data yet.
+`lib/main.dart` starts a go_router shell with the routes `/`, `/settings`, `/create`,
+`/agent/:bcId` and `/environment/:publicId`. Each route gives its page disconnected stub data;
+`CookieSessionStore` and `CursorApi` are not wired into the routes yet.
 
-## Deferred until `android/` exists
+## Still deferred
 
-- Home-screen widgets through `home_widget` and Glance: a refreshable Usage widget, Recent Agents
-  and Quick Actions.
-- The floating usage capsule, which needs the overlay permission. Until then, the Settings page
-  says the capsule arrives in a later update.
-- Wiring the pages into the go_router shell with real data, so the app works end to end.
+- Live state: wiring Riverpod providers, `CookieSessionStore` and `CursorApi` into the routes, so
+  the app works end to end.
+- Home-screen widgets: the Glance Usage widget exists; Recent Agents and Quick Actions are not
+  ported yet.
+- The floating usage capsule's overlay service. Settings can request the overlay permission and
+  start `UsageOverlayService`, but it does not show live usage until live state is wired.
+- Flutter screenshots for this README.
+- Archiving the Kotlin `app/` tree into `legacy/`, deferred by choice until Flutter replaces it.
 
 ## Verify locally
 
@@ -57,12 +62,15 @@ flutter analyze
 flutter test
 ```
 
-These are the same steps the Flutter CI workflow (`.github/workflows/flutter-ci.yml`) runs. It
-runs on pull requests and pushes to `main` that change `lib/`, `test/`, `pubspec.yaml`,
-`pubspec.lock`, `analysis_options.yaml` or the workflow file itself.
+These are the same steps the `verify` job of the Flutter CI workflow
+(`.github/workflows/flutter-ci.yml`) runs; its `apk` job then builds a debug APK. The workflow
+runs only through manual `workflow_dispatch` (Actions → Flutter CI → Run workflow). Pull requests
+and pushes do not start it.
 
-The Flutter tree cannot produce an installable app yet, because `android/` is missing. To build
-or install the app today, follow the Kotlin instructions in [README.md](README.md).
+A signed Flutter APK comes from Publish Flutter release (see [Releases](#releases)). Its current
+`1.0.0+1` is versionCode 1, below the shipped Kotlin 0.1.5 (versionCode 6), so it cannot upgrade
+an existing Kotlin install with the same applicationId until `+build` is raised. Until then, to
+install over the shipped app, follow the Kotlin instructions in [README.md](README.md).
 
 ## Releases
 
