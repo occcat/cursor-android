@@ -15,6 +15,12 @@ English · [简体中文](README.zh-CN.md)
 
 </div>
 
+> [!NOTE]
+> **Flutter rewrite in progress.** The app is being rewritten in Flutter toward 1.0.0;
+> details live in [README_REWRITE.md](README_REWRITE.md). The Kotlin 0.1.5 app in `app/`
+> is still the release that ships today, and the install and build sections below
+> continue to describe it.
+
 ![Cursor Android capsule, usage sheet, and notification design](docs/assets/cursor-android-ui.svg)
 
 *UI design illustration with fictional data. This is an independent community project,
