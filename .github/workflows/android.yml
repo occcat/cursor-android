@@ -1,19 +1,5 @@
 name: Android checks
 on:
-  pull_request:
-    paths:
-      - 'app/**'
-      - 'gradle/**'
-      - '*.gradle.kts'
-      - 'gradle.properties'
-      - '.github/workflows/android.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'app/**'
-      - 'gradle/**'
-      - '*.gradle.kts'
-      - 'gradle.properties'
   workflow_dispatch:
 permissions:
   contents: read
