@@ -1,8 +1,9 @@
 /// App routes. Inbox and Settings read `webConnected` from
 /// [webConnectedProvider], a local cookie read. With a stored cookie the
-/// Inbox also shows the first page of agents from [inboxAgentsProvider];
-/// paging is not wired yet. Every other input is still stub data and no
-/// other route calls the network. The one platform call is the Settings
+/// Inbox also shows agents from [inboxAgentsProvider]: the first page, and
+/// later pages appended by Load more while the list reports more. Refresh
+/// is not wired yet. Every other input is still stub data and no other
+/// route calls the network. The one platform call is the Settings
 /// floating capsule button, which opens the overlay permission screen or,
 /// once drawing over other apps is allowed, starts the overlay service.
 /// Later rounds replace the stubs with live state.
@@ -47,7 +48,11 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
                 loading: inbox.loading,
                 errorMessage: inbox.errorMessage,
                 agents: inbox.agents,
+                hasMore: inbox.hasMore,
                 onCreate: () => context.push('/create'),
+                onLoadMore: inbox.canLoadMore
+                    ? () => ref.read(inboxAgentsProvider.notifier).loadMore()
+                    : null,
                 onOpenAgent: (String bcId) => context.push('/agent/$bcId'),
               );
             },
