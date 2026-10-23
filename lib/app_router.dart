@@ -4,15 +4,17 @@
 /// later pages appended by Load more while the list reports more. Refresh
 /// is not wired yet. With a stored cookie New agent starts the agent through
 /// [watchCreateAgentSubmit], then replaces itself with the agent's route, or
-/// shows a safe error in a snack bar and keeps the form. Every other input
-/// is still stub data and no other route calls the network. The one
-/// platform call is the Settings floating capsule button, which opens the
-/// overlay permission screen or, once drawing over other apps is allowed,
-/// starts the overlay service. Later rounds replace the stubs with live
-/// state.
+/// shows a safe error in a snack bar and keeps the form, and Agent loads its
+/// agent from [agentDetailProvider] and runs Refresh, follow-up, Pause,
+/// Archive and Restore through it. Every other input is still stub data and
+/// no other route calls the network. The one platform call is the Settings
+/// floating capsule button, which opens the overlay permission screen or,
+/// once drawing over other apps is allowed, starts the overlay service.
+/// Later rounds replace the stubs with live state.
 library;
 
 import 'package:cursor_android/domain/preferences.dart';
+import 'package:cursor_android/providers/agent_detail_providers.dart';
 import 'package:cursor_android/providers/create_agent_providers.dart';
 import 'package:cursor_android/providers/inbox_agents_providers.dart';
 import 'package:cursor_android/providers/session_providers.dart';
@@ -114,10 +116,34 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
       ),
       GoRoute(
         path: '/agent/:bcId',
-        builder: (BuildContext context, GoRouterState state) => _Frame(
-          title: 'Agent',
-          child: AgentDetailPage(bcId: state.pathParameters['bcId'] ?? ''),
-        ),
+        builder: (BuildContext context, GoRouterState state) {
+          final String bcId = state.pathParameters['bcId'] ?? '';
+          return _Frame(
+            title: 'Agent',
+            child: Consumer(
+              builder: (BuildContext context, WidgetRef ref, Widget? _) {
+                final AgentDetailView view = watchAgentDetail(ref, bcId);
+                AgentDetailNotifier notifier() =>
+                    ref.read(agentDetailProvider(bcId).notifier);
+                final bool live = view.connected;
+                return AgentDetailPage(
+                  bcId: bcId,
+                  agent: view.agent,
+                  busy: view.busy,
+                  pauseUnavailable: view.pauseUnavailable,
+                  errorMessage: view.errorMessage,
+                  onRefresh: live ? () => notifier().refresh() : null,
+                  onFollowUp: live
+                      ? (String prompt) => notifier().followUp(prompt)
+                      : null,
+                  onPause: live ? () => notifier().pause() : null,
+                  onArchive: live ? () => notifier().archive() : null,
+                  onUnarchive: live ? () => notifier().unarchive() : null,
+                );
+              },
+            ),
+          );
+        },
       ),
       GoRoute(
         path: '/environment/:publicId',
