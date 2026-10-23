@@ -37,6 +37,8 @@ class InboxPage extends StatefulWidget {
     this.agents = const <AgentSummary>[],
     this.hasMore = false,
     this.usage,
+    this.includeArchived = false,
+    this.archivingBcId,
     this.onSignIn,
     this.onCreate,
     this.onRefresh,
@@ -44,6 +46,9 @@ class InboxPage extends StatefulWidget {
     this.onUsage,
     this.onOpenAgent,
     this.onOpenWeb,
+    this.onIncludeArchivedChanged,
+    this.onArchive,
+    this.onRestore,
   });
 
   /// Whether a cursor.com web session is connected.
@@ -59,7 +64,7 @@ class InboxPage extends StatefulWidget {
   /// that looks like it does is replaced by [genericInboxError].
   final String? errorMessage;
 
-  /// All loaded agents; the page filters them locally.
+  /// All loaded agents; the page filters them locally by name.
   final List<AgentSummary> agents;
 
   /// Whether another page of agents can be loaded.
@@ -67,6 +72,15 @@ class InboxPage extends StatefulWidget {
 
   final UsageSnapshot? usage;
   final Preferences preferences;
+
+  /// Whether Include archived is on. Only read when
+  /// [onIncludeArchivedChanged] is set; otherwise the page keeps the choice
+  /// itself.
+  final bool includeArchived;
+
+  /// The `bcId` being archived or restored; its card shows the action as
+  /// running.
+  final String? archivingBcId;
 
   final VoidCallback? onSignIn;
   final VoidCallback? onCreate;
@@ -80,6 +94,19 @@ class InboxPage extends StatefulWidget {
   /// Opens Cursor Web; the button is hidden when this is null.
   final VoidCallback? onOpenWeb;
 
+  /// Receives the new Include archived choice, for example to ask the
+  /// server for archived agents. When null the chip only filters the loaded
+  /// agents locally.
+  final ValueChanged<bool>? onIncludeArchivedChanged;
+
+  /// Archives the agent with this `bcId` after the user confirms. Cards of
+  /// agents that are not `ARCHIVED` show `Archive` when this is set.
+  final ValueChanged<String>? onArchive;
+
+  /// Restores the agent with this `bcId` after the user confirms. Cards of
+  /// `ARCHIVED` agents show `Restore` when this is set.
+  final ValueChanged<String>? onRestore;
+
   @override
   State<InboxPage> createState() => _InboxPageState();
 }
@@ -92,6 +119,46 @@ class _InboxPageState extends State<InboxPage> {
   void dispose() {
     _query.dispose();
     super.dispose();
+  }
+
+  bool get _includeArchived => widget.onIncludeArchivedChanged == null
+      ? _archived
+      : widget.includeArchived;
+
+  void _chooseArchived(bool value) {
+    final ValueChanged<bool>? changed = widget.onIncludeArchivedChanged;
+    if (changed == null) {
+      setState(() => _archived = value);
+    } else {
+      changed(value);
+    }
+  }
+
+  Future<void> _confirmArchive(
+    String bcId, {
+    required bool restore,
+    required ValueChanged<String> run,
+  }) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Confirm agent action'),
+        content: Text(restore ? 'Restore this agent?' : 'Archive this agent?'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      run(bcId);
+    }
   }
 
   @override
@@ -157,11 +224,35 @@ class _InboxPageState extends State<InboxPage> {
     );
   }
 
+  /// The card action for [agent]: `Archive` or `Restore` and its callback,
+  /// or null when the matching callback is missing.
+  ({String label, VoidCallback? onPressed})? _archiveAction(
+    AgentSummary agent,
+  ) {
+    final bool restore = agent.status == 'ARCHIVED';
+    final ValueChanged<String>? run = restore
+        ? widget.onRestore
+        : widget.onArchive;
+    if (run == null) {
+      return null;
+    }
+    final String? running = widget.archivingBcId;
+    if (running != null && running == agent.bcId) {
+      return (label: restore ? 'Restoring…' : 'Archiving…', onPressed: null);
+    }
+    return (
+      label: restore ? 'Restore' : 'Archive',
+      onPressed: running != null || agent.bcId.trim().isEmpty
+          ? null
+          : () => _confirmArchive(agent.bcId, restore: restore, run: run),
+    );
+  }
+
   List<Widget> _connected(TextStyle? secondary) {
     final List<AgentSummary> visible = filterAgents(
       widget.agents,
       query: _query.text,
-      includeArchived: _archived,
+      includeArchived: _includeArchived,
     );
     final ValueChanged<String>? open = widget.onOpenAgent;
     return <Widget>[
@@ -193,8 +284,8 @@ class _InboxPageState extends State<InboxPage> {
           const SizedBox(height: 8),
           FilterChip(
             label: const Text('Include archived'),
-            selected: _archived,
-            onSelected: (bool value) => setState(() => _archived = value),
+            selected: _includeArchived,
+            onSelected: _chooseArchived,
           ),
         ],
       ),
@@ -210,6 +301,7 @@ class _InboxPageState extends State<InboxPage> {
             ),
             agent: agent,
             onTap: open == null ? null : () => open(agent.bcId),
+            action: _archiveAction(agent),
           ),
       if (widget.hasMore)
         Align(

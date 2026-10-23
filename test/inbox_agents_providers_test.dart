@@ -23,10 +23,12 @@ final Uri mockBase = Uri.parse('http://127.0.0.1:8080/');
 const String listPath = '/api/background-composer/list';
 const String offsetKey = 'last_message_activity_at_ms_offset';
 const int pageOffset = 1699999999999;
+
+/// The first-page body while Include archived is off, the Inbox default.
 const Map<String, dynamic> firstPage = <String, dynamic>{
   'n': 50,
   'include_status': true,
-  'include_archived': true,
+  'include_archived': false,
   'include_pinned_state': true,
 };
 const Map<String, dynamic> secondPage = <String, dynamic>{
