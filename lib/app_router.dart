@@ -3,7 +3,7 @@
 /// [preferencesProvider], which Settings changes and stores on the device.
 /// With a stored cookie the Inbox also shows agents from
 /// [inboxAgentsProvider]: the first page, and later pages appended by Load
-/// more while the list reports more. Refresh is not wired yet. With a
+/// more while the list reports more; Refresh reloads the first page. With a
 /// stored cookie New agent starts the agent through [watchCreateAgentSubmit],
 /// then replaces itself with the agent's route, or shows a safe error in a
 /// snack bar and keeps the form; Agent loads its agent from
@@ -62,6 +62,9 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
                 agents: inbox.agents,
                 hasMore: inbox.hasMore,
                 onCreate: () => context.push('/create'),
+                onRefresh: inbox.loading
+                    ? null
+                    : () => ref.read(inboxAgentsProvider.notifier).refresh(),
                 onLoadMore: inbox.canLoadMore
                     ? () => ref.read(inboxAgentsProvider.notifier).loadMore()
                     : null,
