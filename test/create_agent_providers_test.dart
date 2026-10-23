@@ -20,6 +20,13 @@ const String fakeCookie = 'session=fake-cookie-value-123; csrf-token=old';
 final Uri mockBase = Uri.parse('http://127.0.0.1:8080/');
 const String startPath = '/api/auth/startBackgroundComposerFromSnapshot';
 const String repoUrl = 'https://github.com/occcat/demo';
+const String detailPath = '/api/background-composer/get-detailed-composer';
+
+/// The Agent page's first load after a successful start. It has no `bcId`,
+/// so the page keeps the id it was opened with.
+const String createdDetail =
+    '{"composers":[{"composer":'
+    '{"name":"Fix the login bug","status":"RUNNING"}}]}';
 const String leakyServerError =
     '{"error":{"code":"Authorization: Bearer secret-value"}}';
 const String leakyUnauthorized =
@@ -209,7 +216,7 @@ void main() {
     testWidgets('starts the agent once and opens its page', (
       WidgetTester tester,
     ) async {
-      server.replies.add(const Reply('{}'));
+      server.replies.addAll(const <Reply>[Reply('{}'), Reply(createdDetail)]);
       final GoRouter router = await pumpCreate(
         tester,
         await credentialsWithCookie(),
@@ -221,7 +228,8 @@ void main() {
       await tapStart(tester);
       expect(tester.takeException(), isNull);
 
-      final Seen request = server.seen.single;
+      expect(server.seen, hasLength(2));
+      final Seen request = server.seen.first;
       expect(request.method, 'POST');
       expect(request.uri.path, startPath);
       expect(request.headers['cookie'], fakeCookie);
@@ -237,11 +245,21 @@ void main() {
         'expectedScope': 'personal',
       });
 
+      final Seen detail = server.seen.last;
+      expect(detail.method, 'POST');
+      expect(detail.uri.path, detailPath);
+      expect(jsonDecode(detail.body), <String, dynamic>{
+        'bcId': bcId,
+        'n': 1,
+        'includeTeamWide': true,
+      });
+
       expect(
         router.routerDelegate.currentConfiguration.uri.path,
         '/agent/$bcId',
       );
-      expect(find.text('Loading this workspace…'), findsOneWidget);
+      expect(find.text('Fix the login bug'), findsOneWidget);
+      expect(find.text('Loading this workspace…'), findsNothing);
       expect(find.text('What should we build?'), findsNothing);
     });
 
