@@ -14,12 +14,22 @@ String agentUpdatedLabel(AgentSummary agent) {
   return millis != null ? formatUsageTime(millis) : agent.updatedAtLabel;
 }
 
-/// A tappable card with the agent name, its status and when it was updated.
+/// A tappable card with the agent name, its status and when it was updated,
+/// plus an optional text action such as `Archive`.
 class AgentListTile extends StatelessWidget {
-  const AgentListTile({super.key, required this.agent, this.onTap});
+  const AgentListTile({
+    super.key,
+    required this.agent,
+    this.onTap,
+    this.action,
+  });
 
   final AgentSummary agent;
   final VoidCallback? onTap;
+
+  /// A text button at the end of the card, disabled when its `onPressed` is
+  /// null; hidden when [action] is null.
+  final ({String label, VoidCallback? onPressed})? action;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +39,30 @@ class AgentListTile extends StatelessWidget {
         ? 'Untitled agent'
         : agent.name;
     final String updated = agentUpdatedLabel(agent);
+    final ({String label, VoidCallback? onPressed})? button = action;
+    final Widget details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(title, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 10,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: <Widget>[
+            AgentStatus(status: agent.status),
+            if (updated.isNotEmpty)
+              Text(
+                updated,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
     return Material(
       color: scheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
@@ -40,29 +74,18 @@ class AgentListTile extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(title, style: theme.textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: <Widget>[
-                  AgentStatus(status: agent.status),
-                  if (updated.isNotEmpty)
-                    Text(
-                      updated,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+          child: button == null
+              ? details
+              : Row(
+                  children: <Widget>[
+                    Expanded(child: details),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: button.onPressed,
+                      child: Text(button.label),
                     ),
-                ],
-              ),
-            ],
-          ),
+                  ],
+                ),
         ),
       ),
     );

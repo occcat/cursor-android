@@ -2,8 +2,10 @@
 ///
 /// The first page of `background-composer/list` loads with no offset.
 /// [InboxAgentsNotifier.loadMore] fetches the next page with the last
-/// response's `nextPageOffset` and appends it. Refresh is left to a later
-/// round.
+/// response's `nextPageOffset` and appends it. Whether archived agents are
+/// requested follows [inboxIncludeArchivedProvider], which the Include
+/// archived filter sets; changing it reloads the first page. Agents can be
+/// archived and restored from the list. Refresh is left to a later round.
 library;
 
 import 'package:cursor_android/data/api_failure.dart';
@@ -27,14 +29,15 @@ class InboxAgents {
     this.hasMore = false,
     this.nextPageOffset,
     this.loadingMore = false,
+    this.actionBcId,
   });
 
   /// Agents from every loaded page, in API order, each non-blank `bcId`
   /// once.
   final List<AgentSummary> agents;
 
-  /// User-facing text for a failed load. It never carries cookies or other
-  /// secrets.
+  /// User-facing text for a failed load or action. It never carries cookies
+  /// or other secrets.
   final String? errorMessage;
 
   /// Whether the last page reported more agents along with a
@@ -48,13 +51,18 @@ class InboxAgents {
   /// Whether the next page is being fetched.
   final bool loadingMore;
 
+  /// The `bcId` being archived or restored, or null when none is.
+  final String? actionBcId;
+
   /// Whether [InboxAgentsNotifier.loadMore] would fetch a page now.
-  bool get canLoadMore => hasMore && nextPageOffset != null && !loadingMore;
+  bool get canLoadMore =>
+      hasMore && nextPageOffset != null && !loadingMore && actionBcId == null;
 
   @override
   String toString() =>
       'InboxAgents(agents: ${agents.length}, hasMore: $hasMore, '
-      'loadingMore: $loadingMore, error: ${errorMessage != null})';
+      'loadingMore: $loadingMore, action: ${actionBcId != null}, '
+      'error: ${errorMessage != null})';
 }
 
 /// Safe Inbox text for a failed agent list load.
@@ -63,12 +71,17 @@ class InboxAgents {
 /// [ApiFailure]s show the status and the already sanitized code, and a
 /// [CursorNetworkFailure] shows only the Dio error kind. Anything else, and
 /// any text that still looks secret, becomes [genericInboxError].
-String inboxAgentsErrorMessage(Object error) {
+String inboxAgentsErrorMessage(Object error) =>
+    inboxActionErrorMessage(error, action: 'load agents');
+
+/// Safe Inbox text for a failed [action], for example `archive the agent`,
+/// with the same rules as [inboxAgentsErrorMessage].
+String inboxActionErrorMessage(Object error, {required String action}) {
   final String message = switch (error) {
     ApiFailure(status: 401) ||
     ApiFailure(code: 'connection_required') => inboxReconnectError,
     ApiFailure(:final int status, :final String code) =>
-      'Could not load agents (HTTP $status · $code).',
+      'Could not $action (HTTP $status · $code).',
     CursorNetworkFailure(:final String kind) =>
       'Could not reach Cursor ($kind). Check your connection.',
     _ => genericInboxError,
@@ -120,23 +133,74 @@ InboxAgents inboxAgentsFromPage(
   );
 }
 
-/// Loads the first page of Inbox agents and appends later pages.
+/// One page of `background-composer/list` for the Inbox.
 ///
-/// The first page comes from `listBackgroundComposers()` with no offset.
-/// Without a stored web session it resolves to no agents and no error
-/// without touching the network. A failed load resolves to an
-/// [InboxAgents.errorMessage] instead of an error, so exception text never
-/// reaches the UI and Riverpod does not retry the request on its own.
+/// The body is the Kotlin 0.1.5 list body from
+/// `CursorApi.listBackgroundComposers`, except that `include_archived`
+/// follows [includeArchived] so the server does the archived filtering. A
+/// non-null [offset] is sent unchanged as
+/// `last_message_activity_at_ms_offset`. Goes through `CursorApi.request`,
+/// so an `invalid_csrf_token` failure mints a fresh token and retries once.
+Future<Map<String, dynamic>> listInboxPage(
+  CursorApi api, {
+  required bool includeArchived,
+  Object? offset,
+}) {
+  return api.request(
+    'POST',
+    const <String>['api', 'background-composer', 'list'],
+    body: <String, dynamic>{
+      'n': 50,
+      'include_status': true,
+      'include_archived': includeArchived,
+      'include_pinned_state': true,
+      'last_message_activity_at_ms_offset': ?offset,
+    },
+  );
+}
+
+/// Whether the Inbox asks the server for archived agents too; false until
+/// the user turns Include archived on.
+class InboxIncludeArchivedNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  /// Sets whether archived agents are requested.
+  void choose(bool includeArchived) {
+    state = includeArchived;
+  }
+}
+
+/// The Include archived choice; [inboxAgentsProvider] reloads when it
+/// changes.
+final NotifierProvider<InboxIncludeArchivedNotifier, bool>
+inboxIncludeArchivedProvider =
+    NotifierProvider<InboxIncludeArchivedNotifier, bool>(
+      InboxIncludeArchivedNotifier.new,
+    );
+
+/// Loads the first page of Inbox agents, appends later pages, and archives
+/// or restores agents.
+///
+/// The first page comes from [listInboxPage] with no offset and the current
+/// [inboxIncludeArchivedProvider] choice. Without a stored web session it
+/// resolves to no agents and no error without touching the network. A
+/// failed load resolves to an [InboxAgents.errorMessage] instead of an
+/// error, so exception text never reaches the UI and Riverpod does not
+/// retry the request on its own.
 class InboxAgentsNotifier extends AsyncNotifier<InboxAgents> {
   @override
   Future<InboxAgents> build() async {
+    final bool includeArchived = ref.watch(inboxIncludeArchivedProvider);
     final Future<bool> connected = ref.watch(webConnectedProvider.future);
     final CursorApi api = ref.watch(cursorApiProvider);
     if (!await connected) {
       return const InboxAgents();
     }
     try {
-      return inboxAgentsFromPage(await api.listBackgroundComposers());
+      return inboxAgentsFromPage(
+        await listInboxPage(api, includeArchived: includeArchived),
+      );
     } on Object catch (error) {
       return InboxAgents(errorMessage: inboxAgentsErrorMessage(error));
     }
@@ -158,6 +222,7 @@ class InboxAgentsNotifier extends AsyncNotifier<InboxAgents> {
       return;
     }
     final CursorApi api = ref.read(cursorApiProvider);
+    final bool includeArchived = ref.read(inboxIncludeArchivedProvider);
     final InboxAgents pending = InboxAgents(
       agents: current.agents,
       errorMessage: current.errorMessage,
@@ -168,8 +233,10 @@ class InboxAgentsNotifier extends AsyncNotifier<InboxAgents> {
     state = AsyncData<InboxAgents>(pending);
     InboxAgents next;
     try {
-      final Map<String, dynamic> root = await api.listBackgroundComposers(
-        lastMessageActivityAtMsOffset: offset,
+      final Map<String, dynamic> root = await listInboxPage(
+        api,
+        includeArchived: includeArchived,
+        offset: offset,
       );
       next = inboxAgentsFromPage(root, before: current.agents);
     } on Object catch (error) {
@@ -180,6 +247,83 @@ class InboxAgentsNotifier extends AsyncNotifier<InboxAgents> {
         nextPageOffset: offset,
       );
     }
+    _settle(pending, next);
+  }
+
+  /// Archives the agent [bcId], then reloads the first page.
+  Future<void> archive(String bcId) =>
+      _setArchived(bcId, archived: true, action: 'archive the agent');
+
+  /// Restores the archived agent [bcId], then reloads the first page.
+  Future<void> restore(String bcId) =>
+      _setArchived(bcId, archived: false, action: 'restore the agent');
+
+  /// Runs `archiveBackgroundComposer` for [bcId] and reloads the first page
+  /// with the current Include archived choice.
+  ///
+  /// Does nothing for a blank id, while the list or a page is loading, or
+  /// while another archive or restore runs. A failed action keeps the list
+  /// and skips the reload; a failed reload keeps the list. Either sets a
+  /// safe [InboxAgents.errorMessage]. Nothing is retried automatically.
+  /// The reload starts again from the first page, so later pages need Load
+  /// more again.
+  Future<void> _setArchived(
+    String bcId, {
+    required bool archived,
+    required String action,
+  }) async {
+    if (bcId.trim().isEmpty || state.isLoading || !state.hasValue) {
+      return;
+    }
+    final InboxAgents current = state.requireValue;
+    if (current.loadingMore || current.actionBcId != null) {
+      return;
+    }
+    final CursorApi api = ref.read(cursorApiProvider);
+    final bool includeArchived = ref.read(inboxIncludeArchivedProvider);
+    final InboxAgents pending = InboxAgents(
+      agents: current.agents,
+      errorMessage: current.errorMessage,
+      hasMore: current.hasMore,
+      nextPageOffset: current.nextPageOffset,
+      actionBcId: bcId,
+    );
+    state = AsyncData<InboxAgents>(pending);
+    InboxAgents next;
+    try {
+      if (archived) {
+        await api.archiveAgent(bcId);
+      } else {
+        await api.unarchiveAgent(bcId);
+      }
+    } on Object catch (error) {
+      _settle(
+        pending,
+        _keep(current, inboxActionErrorMessage(error, action: action)),
+      );
+      return;
+    }
+    try {
+      next = inboxAgentsFromPage(
+        await listInboxPage(api, includeArchived: includeArchived),
+      );
+    } on Object catch (error) {
+      next = _keep(current, inboxAgentsErrorMessage(error));
+    }
+    _settle(pending, next);
+  }
+
+  InboxAgents _keep(InboxAgents current, String errorMessage) {
+    return InboxAgents(
+      agents: current.agents,
+      errorMessage: errorMessage,
+      hasMore: current.hasMore,
+      nextPageOffset: current.nextPageOffset,
+    );
+  }
+
+  /// Applies [next] unless the list changed since [pending] was set.
+  void _settle(InboxAgents pending, InboxAgents next) {
     if (!ref.mounted ||
         state.isLoading ||
         !state.hasValue ||
@@ -204,15 +348,20 @@ typedef InboxAgentsView = ({
   String? errorMessage,
   bool hasMore,
   bool canLoadMore,
+  bool includeArchived,
+  bool canArchive,
+  String? actionBcId,
 });
 
 /// [inboxAgentsProvider] as Inbox inputs.
 ///
 /// `loading` is also true while the next page is fetched, and
-/// `canLoadMore` is false then. While disconnected this is no agents, not
-/// loading, no error and no more pages, and [inboxAgentsProvider] is not
-/// watched.
+/// `canLoadMore` is false then. `canArchive` is true only when the list is
+/// loaded and no page, archive or restore is in flight. While disconnected
+/// this is no agents, not loading, no error, no more pages and no actions,
+/// and [inboxAgentsProvider] is not watched.
 InboxAgentsView watchInboxAgents(WidgetRef ref) {
+  final bool includeArchived = ref.watch(inboxIncludeArchivedProvider);
   if (!watchWebConnected(ref)) {
     return (
       agents: const <AgentSummary>[],
@@ -220,6 +369,9 @@ InboxAgentsView watchInboxAgents(WidgetRef ref) {
       errorMessage: null,
       hasMore: false,
       canLoadMore: false,
+      includeArchived: includeArchived,
+      canArchive: false,
+      actionBcId: null,
     );
   }
   final AsyncValue<InboxAgents> state = ref.watch(inboxAgentsProvider);
@@ -230,5 +382,12 @@ InboxAgentsView watchInboxAgents(WidgetRef ref) {
     errorMessage: state.hasError ? genericInboxError : data?.errorMessage,
     hasMore: data?.hasMore ?? false,
     canLoadMore: !state.isLoading && (data?.canLoadMore ?? false),
+    includeArchived: includeArchived,
+    canArchive:
+        !state.isLoading &&
+        data != null &&
+        !data.loadingMore &&
+        data.actionBcId == null,
+    actionBcId: data?.actionBcId,
   );
 }

@@ -1,12 +1,15 @@
 /// App routes. Inbox and Settings read `webConnected` from
 /// [webConnectedProvider], a local cookie read. With a stored cookie the
 /// Inbox also shows agents from [inboxAgentsProvider]: the first page, and
-/// later pages appended by Load more while the list reports more. Refresh
-/// is not wired yet. Every other input is still stub data and no other
-/// route calls the network. The one platform call is the Settings
-/// floating capsule button, which opens the overlay permission screen or,
-/// once drawing over other apps is allowed, starts the overlay service.
-/// Later rounds replace the stubs with live state.
+/// later pages appended by Load more while the list reports more. Its
+/// Include archived filter sets [inboxIncludeArchivedProvider], so the
+/// server decides whether archived agents are listed, and its cards archive
+/// or restore an agent after the user confirms. Search stays a local name
+/// filter and Refresh is not wired yet. Every other input is still stub
+/// data and no other route calls the network. The one platform call is the
+/// Settings floating capsule button, which opens the overlay permission
+/// screen or, once drawing over other apps is allowed, starts the overlay
+/// service. Later rounds replace the stubs with live state.
 library;
 
 import 'package:cursor_android/domain/preferences.dart';
@@ -42,6 +45,8 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
           child: Consumer(
             builder: (BuildContext context, WidgetRef ref, Widget? _) {
               final InboxAgentsView inbox = watchInboxAgents(ref);
+              InboxAgentsNotifier agents() =>
+                  ref.read(inboxAgentsProvider.notifier);
               return InboxPage(
                 webConnected: watchWebConnected(ref),
                 preferences: const Preferences(),
@@ -49,11 +54,22 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
                 errorMessage: inbox.errorMessage,
                 agents: inbox.agents,
                 hasMore: inbox.hasMore,
+                includeArchived: inbox.includeArchived,
+                archivingBcId: inbox.actionBcId,
                 onCreate: () => context.push('/create'),
                 onLoadMore: inbox.canLoadMore
-                    ? () => ref.read(inboxAgentsProvider.notifier).loadMore()
+                    ? () => agents().loadMore()
                     : null,
                 onOpenAgent: (String bcId) => context.push('/agent/$bcId'),
+                onIncludeArchivedChanged: (bool value) => ref
+                    .read(inboxIncludeArchivedProvider.notifier)
+                    .choose(value),
+                onArchive: inbox.canArchive || inbox.actionBcId != null
+                    ? (String bcId) => agents().archive(bcId)
+                    : null,
+                onRestore: inbox.canArchive || inbox.actionBcId != null
+                    ? (String bcId) => agents().restore(bcId)
+                    : null,
               );
             },
           ),
