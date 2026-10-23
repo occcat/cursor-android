@@ -4,18 +4,21 @@
 /// later pages appended by Load more while the list reports more. Refresh
 /// is not wired yet. With a stored cookie New agent starts the agent through
 /// [watchCreateAgentSubmit], then replaces itself with the agent's route, or
-/// shows a safe error in a snack bar and keeps the form, and Agent loads its
+/// shows a safe error in a snack bar and keeps the form; Agent loads its
 /// agent from [agentDetailProvider] and runs Refresh, follow-up, Pause,
-/// Archive and Restore through it. Every other input is still stub data and
-/// no other route calls the network. The one platform call is the Settings
-/// floating capsule button, which opens the overlay permission screen or,
-/// once drawing over other apps is allowed, starts the overlay service.
-/// Later rounds replace the stubs with live state.
+/// Archive and Restore through it; and Cloud environment loads its
+/// environment and runtime values from [environmentDetailProvider] and runs
+/// Refresh, Save, add and revoke through it. Every other input is still
+/// stub data and no other route calls the network. The one platform call is
+/// the Settings floating capsule button, which opens the overlay permission
+/// screen or, once drawing over other apps is allowed, starts the overlay
+/// service. Later rounds replace the stubs with live state.
 library;
 
 import 'package:cursor_android/domain/preferences.dart';
 import 'package:cursor_android/providers/agent_detail_providers.dart';
 import 'package:cursor_android/providers/create_agent_providers.dart';
+import 'package:cursor_android/providers/environment_providers.dart';
 import 'package:cursor_android/providers/inbox_agents_providers.dart';
 import 'package:cursor_android/providers/session_providers.dart';
 import 'package:cursor_android/system/overlay_bridge.dart';
@@ -147,12 +150,44 @@ GoRouter createAppRouter({String initialLocation = '/'}) {
       ),
       GoRoute(
         path: '/environment/:publicId',
-        builder: (BuildContext context, GoRouterState state) => _Frame(
-          title: 'Cloud environment',
-          child: EnvironmentPage(
-            publicId: state.pathParameters['publicId'] ?? '',
-          ),
-        ),
+        builder: (BuildContext context, GoRouterState state) {
+          final String publicId = state.pathParameters['publicId'] ?? '';
+          return _Frame(
+            title: 'Cloud environment',
+            child: Consumer(
+              builder: (BuildContext context, WidgetRef ref, Widget? _) {
+                final EnvironmentDetailView view = watchEnvironmentDetail(
+                  ref,
+                  publicId,
+                );
+                EnvironmentDetailNotifier notifier() =>
+                    ref.read(environmentDetailProvider(publicId).notifier);
+                final bool live = view.connected;
+                return EnvironmentPage(
+                  publicId: publicId,
+                  busy: view.busy,
+                  loaded: view.loaded,
+                  name: view.name,
+                  environmentJson: view.environmentJson,
+                  secrets: view.secrets,
+                  errorMessage: view.errorMessage,
+                  onRefresh: live ? () => notifier().refresh() : null,
+                  onSave: live
+                      ? (String _, String json) => notifier().save(json)
+                      : null,
+                  onAddSecret: live
+                      ? (String name, String value) =>
+                            notifier().addSecret(name, value)
+                      : null,
+                  onRevokeSecret: live
+                      ? (String name, String? id) =>
+                            notifier().revokeSecret(name, id)
+                      : null,
+                );
+              },
+            ),
+          );
+        },
       ),
     ],
   );
