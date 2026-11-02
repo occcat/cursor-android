@@ -1,0 +1,48 @@
+name: Website (MacBook M1)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: [self-hosted, macOS, ARM64, occcat-m1]
+    if: github.actor == 'occcat' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test website behavior and release metadata
+        run: node --test website/test/*.test.mjs
+      - name: Check browser module syntax
+        run: node --check website/src/app.mjs
+      - name: Build deterministic static preview
+        run: node website/scripts/build.mjs --offline
+
+    timeout-minutes: 60
+  deploy-release:
+    needs: verify
+    if: github.actor == 'occcat' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (github.repository == 'occcat/cursor-android' &&
+      (github.event_name == 'release' || github.event_name == 'workflow_dispatch'))
+    runs-on: [self-hosted, macOS, ARM64, occcat-m1]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refresh production Pages release metadata
+        env:
+          CLOUDFLARE_PAGES_DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_HOOK }}
+        run: node website/scripts/deploy-hook.mjs
+    timeout-minutes: 60
